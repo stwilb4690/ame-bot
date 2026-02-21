@@ -29,7 +29,7 @@ use tracing::{error, info, warn};
 
 use cache::TeamCache;
 use circuit_breaker::{CircuitBreaker, CircuitBreakerConfig};
-use config::{AppMode, ARB_THRESHOLD, ENABLED_LEAGUES, WS_RECONNECT_DELAY_SECS, app_mode, state_write_interval_secs};
+use config::{AppMode, arb_threshold, ENABLED_LEAGUES, WS_RECONNECT_DELAY_SECS, app_mode, state_write_interval_secs};
 use discovery::DiscoveryClient;
 use execution::{ExecutionEngine, create_execution_channel, run_execution_loop};
 use kalshi::{KalshiConfig, KalshiApiClient};
@@ -234,7 +234,7 @@ async fn main() -> Result<()> {
         info!("[DIAGNOSE] Connecting Kalshi WebSocket...");
         let diag_state = state.clone();
         let diag_kalshi_config = kalshi_config.clone();
-        let threshold_cents: PriceCents = ((ARB_THRESHOLD * 100.0).round() as u16).max(1);
+        let threshold_cents: PriceCents = ((arb_threshold() * 100.0).round() as u16).max(1);
 
         // Dummy exec channel for the WebSocket call
         let (diag_exec_tx, _diag_exec_rx) = create_execution_channel();
@@ -254,7 +254,7 @@ async fn main() -> Result<()> {
     }
 
     // === Execution infrastructure (only for full mode) ===
-    let threshold_cents: PriceCents = ((ARB_THRESHOLD * 100.0).round() as u16).max(1);
+    let threshold_cents: PriceCents = ((arb_threshold() * 100.0).round() as u16).max(1);
     info!("   Threshold: {}¢", threshold_cents);
 
     let (exec_tx, exec_rx) = create_execution_channel();
@@ -364,7 +364,7 @@ async fn main() -> Result<()> {
             loop {
                 tokio::select! {
                     _ = interval.tick() => {
-                        scan_markets(&scan_state, tg.as_ref().map(|t| t.as_ref()), spread_threshold);
+                        scan_markets(&scan_state, tg.as_ref(), spread_threshold);
                     }
                     _ = scan_shutdown.recv() => { break; }
                 }
@@ -383,7 +383,7 @@ async fn main() -> Result<()> {
             loop {
                 tokio::select! {
                     _ = interval.tick() => {
-                        run_heartbeat(&hb_state, hb_threshold, tg.as_ref().map(|t| t.as_ref()));
+                        run_heartbeat(&hb_state, hb_threshold, tg.as_ref());
                     }
                     _ = hb_shutdown.recv() => { break; }
                 }
@@ -418,7 +418,7 @@ async fn main() -> Result<()> {
 
 fn scan_markets(
     state: &GlobalState,
-    telegram: Option<&TelegramClient>,
+    telegram: Option<&Arc<TelegramClient>>,
     spread_threshold: u16,
 ) {
     let count = state.market_count();
@@ -462,7 +462,7 @@ fn market_info(market: &types::AtomicMarketState) -> (String, String) {
 fn run_heartbeat(
     state: &GlobalState,
     threshold_cents: PriceCents,
-    telegram: Option<&TelegramClient>,
+    telegram: Option<&Arc<TelegramClient>>,
 ) {
     let market_count = state.market_count();
     let mut with_kalshi = 0;

@@ -124,7 +124,7 @@ pub fn kalshi_fee_rate() -> f64 {
 // === Thresholds ===
 
 /// Arb threshold: alert when total cost < this (e.g., 0.995 = 0.5% profit).
-pub const ARB_THRESHOLD: f64 = 0.995;
+pub fn arb_threshold() -> f64 { std::env::var("ARB_THRESHOLD").ok().and_then(|v| v.parse().ok()).unwrap_or(0.95) }
 
 /// Wide spread threshold in cents (default 10¢ above $1.00 round-trip cost).
 /// Fires when YES ask + NO ask > 100 + this value.
