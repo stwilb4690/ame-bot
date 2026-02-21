@@ -16,6 +16,7 @@ mod execution;
 mod kalshi;
 mod polymarket;
 mod polymarket_clob;
+mod polymarket_us;
 mod position_tracker;
 mod state_writer;
 mod telegram;
@@ -34,6 +35,7 @@ use discovery::DiscoveryClient;
 use execution::{ExecutionEngine, create_execution_channel, run_execution_loop};
 use kalshi::{KalshiConfig, KalshiApiClient};
 use polymarket_clob::{PolymarketAsyncClient, PreparedCreds, SharedAsyncClient};
+use polymarket_us::PolymarketUsClient;
 use position_tracker::{PositionTracker, create_position_channel, position_writer_loop};
 use state_writer::{ConfigOverrides, StateWriter, run_state_writer};
 use telegram::TelegramClient;
@@ -53,6 +55,11 @@ struct Cli {
     /// Equivalent to setting DIAGNOSE=1.
     #[arg(long, default_value_t = false)]
     diagnose: bool,
+
+    /// Test Polymarket US Ed25519 auth: call GET /v1/account/balances, print result, exit.
+    /// Requires POLY_US_API_KEY and POLY_US_API_SECRET to be set.
+    #[arg(long, default_value_t = false)]
+    test_poly_us: bool,
 }
 
 // === Main ===
@@ -64,6 +71,29 @@ async fn main() -> Result<()> {
 
     // Parse CLI
     let cli = Cli::parse();
+
+    // --test-poly-us: verify Ed25519 auth against api.polymarket.us, then exit.
+    if cli.test_poly_us {
+        let key = std::env::var("POLY_US_API_KEY")
+            .context("POLY_US_API_KEY must be set for --test-poly-us")?;
+        let secret = std::env::var("POLY_US_API_SECRET")
+            .context("POLY_US_API_SECRET must be set for --test-poly-us")?;
+        let client = PolymarketUsClient::new(&key, &secret)
+            .context("Failed to construct PolymarketUsClient")?;
+        println!("[POLY-US] Calling GET /v1/account/balances...");
+        match client.get_balances().await {
+            Ok(resp) => {
+                println!("[POLY-US] Success:");
+                println!("{}", serde_json::to_string_pretty(&resp.data).unwrap_or_else(|_| format!("{:?}", resp.data)));
+            }
+            Err(e) => {
+                eprintln!("[POLY-US] Error: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
     let diagnose_mode = cli.diagnose
         || std::env::var("DIAGNOSE").map(|v| v == "1" || v == "true").unwrap_or(false);
     let diagnose_secs: u64 = std::env::var("DIAGNOSE_SECS")
@@ -142,6 +172,27 @@ async fn main() -> Result<()> {
         }
         None
     };
+
+    // === Polymarket US Retail API client (optional, Ed25519 auth) ===
+    let poly_us_client: Option<Arc<PolymarketUsClient>> =
+        match (std::env::var("POLY_US_API_KEY"), std::env::var("POLY_US_API_SECRET")) {
+            (Ok(key), Ok(secret)) if !key.is_empty() && !secret.is_empty() => {
+                match PolymarketUsClient::new(&key, &secret) {
+                    Ok(client) => {
+                        info!("[POLY-US] Retail API client initialised (key={}...)", &key[..key.len().min(8)]);
+                        Some(Arc::new(client))
+                    }
+                    Err(e) => {
+                        warn!("[POLY-US] Failed to initialise client: {}", e);
+                        None
+                    }
+                }
+            }
+            _ => {
+                info!("[POLY-US] Not configured (set POLY_US_API_KEY + POLY_US_API_SECRET to enable)");
+                None
+            }
+        };
 
     // === Telegram client (optional) ===
     let telegram = TelegramClient::from_env();
@@ -270,6 +321,7 @@ async fn main() -> Result<()> {
         let engine = Arc::new(ExecutionEngine::new(
             kalshi_api.clone(),
             poly_async_for_engine,
+            poly_us_client.clone(),
             state.clone(),
             circuit_breaker.clone(),
             position_channel,

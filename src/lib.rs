@@ -8,5 +8,6 @@ pub mod execution;
 pub mod kalshi;
 pub mod polymarket;
 pub mod polymarket_clob;
+pub mod polymarket_us;
 pub mod position_tracker;
 pub mod types;

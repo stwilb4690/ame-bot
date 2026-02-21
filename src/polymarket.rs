@@ -71,55 +71,58 @@ impl GammaClient {
         }
     }
     
-    /// Look up Polymarket market by slug, return (yes_token, no_token)
-    /// Tries both the exact date and next day (timezone handling)
-    pub async fn lookup_market(&self, slug: &str) -> Result<Option<(String, String)>> {
+    /// Look up Polymarket market by slug.
+    /// Returns `(yes_token, no_token, actual_slug)` where `actual_slug` is the slug
+    /// as returned by Gamma (may differ from the queried slug by one day due to timezones).
+    pub async fn lookup_market(&self, slug: &str) -> Result<Option<(String, String, String)>> {
         // Try exact slug first
-        if let Some(tokens) = self.try_lookup_slug(slug).await? {
-            return Ok(Some(tokens));
+        if let Some(result) = self.try_lookup_slug(slug).await? {
+            return Ok(Some(result));
         }
-        
+
         // Try with next day (Polymarket may use local time)
         if let Some(next_day_slug) = increment_date_in_slug(slug) {
-            if let Some(tokens) = self.try_lookup_slug(&next_day_slug).await? {
+            if let Some(result) = self.try_lookup_slug(&next_day_slug).await? {
                 info!("  📅 Found with next-day slug: {}", next_day_slug);
-                return Ok(Some(tokens));
+                return Ok(Some(result));
             }
         }
-        
+
         Ok(None)
     }
-    
-    async fn try_lookup_slug(&self, slug: &str) -> Result<Option<(String, String)>> {
+
+    async fn try_lookup_slug(&self, slug: &str) -> Result<Option<(String, String, String)>> {
         let url = format!("{}/markets?slug={}", GAMMA_API_BASE, slug);
-        
+
         let resp = self.http.get(&url).send().await?;
-        
+
         if !resp.status().is_success() {
             return Ok(None);
         }
-        
+
         let markets: Vec<GammaMarket> = resp.json().await?;
-        
+
         if markets.is_empty() {
             return Ok(None);
         }
-        
+
         let market = &markets[0];
-        
+
         // Check if active and not closed
         if market.closed == Some(true) || market.active == Some(false) {
             return Ok(None);
         }
-        
+
         // Parse clobTokenIds JSON array
         let token_ids: Vec<String> = market.clob_token_ids
             .as_ref()
             .and_then(|s| serde_json::from_str(s).ok())
             .unwrap_or_default();
-        
+
         if token_ids.len() >= 2 {
-            Ok(Some((token_ids[0].clone(), token_ids[1].clone())))
+            // Use the slug Gamma returned; fall back to the queried slug if missing.
+            let actual_slug = market.slug.clone().unwrap_or_else(|| slug.to_string());
+            Ok(Some((token_ids[0].clone(), token_ids[1].clone(), actual_slug)))
         } else {
             Ok(None)
         }
@@ -128,6 +131,7 @@ impl GammaClient {
 
 #[derive(Debug, Deserialize)]
 struct GammaMarket {
+    slug: Option<String>,
     #[serde(rename = "clobTokenIds")]
     clob_token_ids: Option<String>,
     active: Option<bool>,

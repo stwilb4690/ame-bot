@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AME Bot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:         #070b0f;
+      --surface:    #0d1117;
+      --surface-2:  #161b22;
+      --border:     #1e2730;
+      --border-hi:  #30363d;
+      --green:      #3fb950;
+      --green-hi:   #56d364;
+      --red:        #f85149;
+      --red-dim:    rgba(248,81,73,0.15);
+      --yellow:     #d29922;
+      --yellow-hi:  #e3b341;
+      --blue:       #388bfd;
+      --blue-hi:    #79c0ff;
+      --cyan:       #76e3ea;
+      --text:       #e6edf3;
+      --muted:      #8b949e;
+      --dim:        #3d444d;
+      --font:       'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { height: 100%; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 100%;
+    }
+
+    /* ── LAYOUT ─────────────────────────────────────────── */
+    .wrap {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 18px 48px;
+    }
+
+    /* ── HEADER ─────────────────────────────────────────── */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 20px 14px;
+      margin: 0 -18px 0;
+    }
+
+    .hdr-row1 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .logo {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: var(--blue-hi);
+      text-shadow: 0 0 20px rgba(121,192,255,0.3);
+    }
+
+    .v-badge {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--muted);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 2px 7px;
+    }
+
+    .gap { flex: 1; }
+
+    .live-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--green);
+    }
+
+    .pulse {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(63,185,80,0.5); }
+      50%      { box-shadow: 0 0 0 5px rgba(63,185,80,0); }
+    }
+
+    .hdr-row2 {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      padding: 2px 9px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+    }
+
+    .b-mode   { background: rgba(56,139,253,0.12); border-color: rgba(56,139,253,0.35); color: var(--blue-hi); }
+    .b-prod   { background: rgba(248,81,73,0.12);  border-color: rgba(248,81,73,0.35);  color: #ff7b72; }
+    .b-demo   { background: rgba(210,153,34,0.12); border-color: rgba(210,153,34,0.35); color: var(--yellow-hi); }
+    .b-dry    { background: rgba(210,153,34,0.18); border-color: rgba(210,153,34,0.45); color: var(--yellow-hi); }
+
+    .hdr-row3 {
+      display: flex;
+      gap: 22px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .hdr-row3 .lbl { color: var(--dim); margin-right: 4px; font-size: 10px; letter-spacing: 0.08em; }
+
+    /* ── SECTION ────────────────────────────────────────── */
+    .sec { margin-top: 22px; }
+
+    .sec-hdr {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--dim);
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+
+    /* ── CONNECTIONS ────────────────────────────────────── */
+    .conn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .conn-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 10px;
+      text-align: center;
+    }
+
+    .conn-lbl {
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 7px;
+    }
+
+    .conn-val {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+    .s-ok   .dot { background: var(--green); }
+    .s-ok         { color: var(--green); }
+    .s-err  .dot { background: var(--red); }
+    .s-err        { color: var(--red); }
+    .s-warn .dot { background: var(--yellow-hi); }
+    .s-warn       { color: var(--yellow-hi); }
+    .s-na         { color: var(--dim); }
+    .s-na   .dot { background: var(--dim); }
+
+    /* ── METRICS ────────────────────────────────────────── */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .m-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 8px 12px;
+      text-align: center;
+    }
+
+    .m-val {
+      font-size: 34px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--text);
+      margin-bottom: 5px;
+      transition: color 0.3s;
+    }
+
+    .m-val.accent { color: var(--blue-hi); }
+
+    .m-lbl {
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--dim);
+    }
+
+    .coverage-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+
+    .cov-top {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 7px;
+      font-size: 11px;
+    }
+
+    .cov-lbl { color: var(--muted); letter-spacing: 0.06em; }
+    .cov-pct { color: var(--blue-hi); font-weight: 700; }
+
+    .bar-bg { background: var(--surface-2); border-radius: 4px; height: 5px; overflow: hidden; }
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #2d6fe8, var(--blue-hi));
+      transition: width 0.6s cubic-bezier(.25,.46,.45,.94);
+    }
+
+    /* ── SPARKLINE ──────────────────────────────────────── */
+    .spark-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-top: 8px;
+    }
+
+    .spark-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 11px;
+    }
+
+    .spark-lbl { color: var(--muted); letter-spacing: 0.06em; }
+    .spark-val { color: var(--cyan); font-weight: 600; }
+
+    canvas { display: block; }
+
+    /* ── OPPORTUNITY CARDS ──────────────────────────────── */
+    .no-card {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 18px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+    }
+
+    .no-card.clear {
+      color: var(--green);
+      border-color: rgba(63,185,80,0.2);
+      background: rgba(63,185,80,0.04);
+    }
+
+    .no-card.none { color: var(--dim); }
+
+    .opp-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 8px;
+    }
+
+    .opp-card.arb    { border-left: 3px solid var(--green);    }
+    .opp-card.spread { border-left: 3px solid var(--yellow-hi); }
+
+    .opp-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .opp-market {
+      font-size: 12px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .opp-type-tag {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 2px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .tag-arb    { background: rgba(63,185,80,0.12); color: var(--green-hi); }
+    .tag-spread { background: rgba(210,153,34,0.12); color: var(--yellow-hi); }
+
+    .opp-prices {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .p-pill {
+      background: var(--surface-2);
+      border: 1px solid var(--border-hi);
+      border-radius: 5px;
+      padding: 5px 12px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .p-yes { color: var(--green-hi); }
+    .p-no  { color: var(--blue-hi);  }
+
+    .p-sep { color: var(--dim); font-size: 12px; }
+
+    .p-profit {
+      margin-left: auto;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--green-hi);
+    }
+
+    .p-spread {
+      margin-left: auto;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--yellow-hi);
+    }
+
+    .opp-ticker {
+      margin-top: 7px;
+      font-size: 10px;
+      color: var(--dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ── LOG ────────────────────────────────────────────── */
+    .log-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .log-scroll {
+      height: 220px;
+      overflow-y: auto;
+      padding: 6px 0;
+    }
+
+    .log-scroll::-webkit-scrollbar { width: 3px; }
+    .log-scroll::-webkit-scrollbar-track { background: transparent; }
+    .log-scroll::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+
+    .log-row {
+      display: flex;
+      gap: 10px;
+      padding: 3px 14px;
+      font-size: 12px;
+      line-height: 1.45;
+      animation: fadeIn 0.15s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-3px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .log-row:hover { background: rgba(255,255,255,0.02); }
+
+    .log-t { color: var(--dim); font-size: 10px; white-space: nowrap; flex-shrink: 0; padding-top: 1px; }
+    .log-m { color: var(--muted); }
+
+    .log-good  .log-m { color: var(--green-hi); }
+    .log-warn  .log-m { color: var(--yellow-hi); }
+    .log-err   .log-m { color: var(--red); }
+    .log-arb   .log-m { color: var(--cyan); font-weight: 600; }
+
+    /* ── STALE BANNER ───────────────────────────────────── */
+    #staleBanner {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: rgba(248,81,73,0.92);
+      color: #fff;
+      text-align: center;
+      padding: 9px 16px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      z-index: 200;
+    }
+
+    /* ── FOOTER ─────────────────────────────────────────── */
+    .footer {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 10px;
+      color: var(--dim);
+      letter-spacing: 0.06em;
+    }
+
+    .footer code {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 6px;
+      color: var(--muted);
+      font-family: var(--font);
+    }
+  </style>
+</head>
+<body>
+
+<div id="staleBanner">⚠  DATA STALE — BOT MAY BE OFFLINE</div>
+
+<!-- ══════════════ HEADER ══════════════ -->
+<div class="header">
+  <div class="wrap" style="padding-bottom:0;padding-top:0">
+
+    <div class="hdr-row1">
+      <span class="logo">AME BOT</span>
+      <span id="vBadge" class="v-badge">v—</span>
+      <div class="gap"></div>
+      <div class="live-pill">
+        <div class="pulse"></div>
+        <span>LIVE</span>
+      </div>
+    </div>
+
+    <div class="hdr-row2">
+      <span id="modeBadge" class="badge b-mode">—</span>
+      <span id="envBadge"  class="badge b-demo">—</span>
+      <span id="dryBadge"  class="badge b-dry" style="display:none">DRY RUN</span>
+    </div>
+
+    <div class="hdr-row3">
+      <span><span class="lbl">UPTIME</span><span id="uptimeLbl">—</span></span>
+      <span><span class="lbl">UPDATED</span><span id="updatedLbl">—</span></span>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════ CONTENT ══════════════ -->
+<div class="wrap">
+
+  <!-- CONNECTIONS -->
+  <div class="sec">
+    <div class="sec-hdr">Connections</div>
+    <div class="conn-grid">
+      <div class="conn-card">
+        <div class="conn-lbl">Kalshi WS</div>
+        <div id="kalshiConn" class="conn-val s-na"><div class="dot"></div><span>—</span></div>
+      </div>
+      <div class="conn-card">
+        <div class="conn-lbl">Poly WS</div>
+        <div id="polyConn" class="conn-val s-na"><div class="dot"></div><span>—</span></div>
+      </div>
+      <div class="conn-card">
+        <div class="conn-lbl">Circuit Brk</div>
+        <div id="cbConn" class="conn-val s-na"><div class="dot"></div><span>—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MARKET COVERAGE -->
+  <div class="sec">
+    <div class="sec-hdr">Market Coverage</div>
+
+    <div class="metrics-grid">
+      <div class="m-card">
+        <div id="mTotal" class="m-val">—</div>
+        <div class="m-lbl">Tracked</div>
+      </div>
+      <div class="m-card">
+        <div id="mKalshi" class="m-val">—</div>
+        <div class="m-lbl">W/ Kalshi</div>
+      </div>
+      <div class="m-card">
+        <div id="mPoly" class="m-val">—</div>
+        <div class="m-lbl">W/ Poly</div>
+      </div>
+      <div class="m-card">
+        <div id="mBoth" class="m-val accent">—</div>
+        <div class="m-lbl">Both Feeds</div>
+      </div>
+    </div>
+
+    <div class="coverage-card">
+      <div class="cov-top">
+        <span class="cov-lbl">DUAL-FEED COVERAGE</span>
+        <span id="covPct" class="cov-pct">—</span>
+      </div>
+      <div class="bar-bg">
+        <div id="covBar" class="bar-fill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div class="spark-card">
+      <div class="spark-top">
+        <span class="spark-lbl">BOTH-FEED MARKETS (60 polls)</span>
+        <span id="sparkVal" class="spark-val">—</span>
+      </div>
+      <canvas id="sparkCanvas" height="40" style="width:100%"></canvas>
+    </div>
+  </div>
+
+  <!-- ARB OPPORTUNITIES -->
+  <div class="sec">
+    <div class="sec-hdr">Arb Opportunities</div>
+    <div id="oppContainer"></div>
+  </div>
+
+  <!-- WIDE SPREADS -->
+  <div class="sec">
+    <div class="sec-hdr">Wide Spreads</div>
+    <div id="spreadContainer"></div>
+  </div>
+
+  <!-- ACTIVITY LOG -->
+  <div class="sec">
+    <div class="sec-hdr">Activity Log</div>
+    <div class="log-box">
+      <div id="logScroll" class="log-scroll"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Polls every 3 s &nbsp;·&nbsp; serve from project root:
+    <code>python3 -m http.server 3000</code>
+    then open <code>http://localhost:3000/dashboard.html</code>
+  </div>
+
+</div><!-- /wrap -->
+
+<script>
+// ─── CONFIG ─────────────────────────────────────────────────────────────────
+const POLL_MS     = 3000;
+const MAX_LOG     = 80;
+const SPARK_HIST  = 60;
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let log          = [];
+let prevStatus   = null;
+let prevOpps     = null;
+let lastFetch    = null;
+let lastUptimeSec = 0;
+let sparkData    = [];  // history of markets_with_both
+let sparkCanvas  = null;
+let sparkCtx     = null;
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  sparkCanvas = document.getElementById('sparkCanvas');
+  sparkCtx    = sparkCanvas.getContext('2d');
+  resizeSpark();
+  window.addEventListener('resize', resizeSpark);
+
+  addLog('Dashboard initialised', 'info');
+  poll();
+  setInterval(poll, POLL_MS);
+  setInterval(tickClocks, 1000);
+  setInterval(checkStale, 5000);
+});
+
+// ─── FETCH ───────────────────────────────────────────────────────────────────
+async function fetchJSON(path) {
+  const r = await fetch(path + '?_=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+async function poll() {
+  try {
+    const [s, o] = await Promise.all([
+      fetchJSON('state/status.json'),
+      fetchJSON('state/opportunities.json'),
+    ]);
+    lastFetch = Date.now();
+    hideBanner();
+    applyStatus(s);
+    applyOpps(o);
+  } catch (e) {
+    addLog('Fetch error: ' + e.message, 'err');
+  }
+}
+
+// ─── STATUS ──────────────────────────────────────────────────────────────────
+function applyStatus(s) {
+  setText('vBadge', 'v' + s.version);
+
+  // Mode badge
+  const mb = document.getElementById('modeBadge');
+  mb.textContent = (s.mode || '—').toUpperCase();
+
+  // Env badge
+  const eb = document.getElementById('envBadge');
+  eb.textContent = (s.app_env || '—').toUpperCase();
+  eb.className = 'badge ' + (s.app_env === 'prod' ? 'b-prod' : 'b-demo');
+
+  lastUptimeSec = s.uptime_secs;
+
+  // Connections
+  setConn('kalshiConn', s.kalshi_ws);
+  setConn('polyConn',   s.poly_ws === 'n/a' ? 'na' : s.poly_ws);
+  setConn('cbConn',     s.circuit_breaker === 'ok' ? 'connected' : 'tripped');
+
+  // Metrics
+  setText('mTotal',  s.markets_tracked);
+  setText('mKalshi', s.markets_with_kalshi_prices);
+  setText('mPoly',   s.markets_with_poly_prices);
+  setText('mBoth',   s.markets_with_both);
+
+  const pct = s.markets_tracked > 0
+    ? Math.round(s.markets_with_both / s.markets_tracked * 100) : 0;
+  setText('covPct', pct + '%');
+  document.getElementById('covBar').style.width = pct + '%';
+
+  // Sparkline data
+  sparkData.push(s.markets_with_both);
+  if (sparkData.length > SPARK_HIST) sparkData.shift();
+  setText('sparkVal', s.markets_with_both + ' / ' + s.markets_tracked);
+  drawSpark();
+
+  // Change log
+  if (prevStatus) {
+    if (prevStatus.kalshi_ws !== s.kalshi_ws)
+      addLog('Kalshi WS: ' + prevStatus.kalshi_ws + ' → ' + s.kalshi_ws,
+             s.kalshi_ws === 'connected' ? 'good' : 'err');
+    if (prevStatus.poly_ws !== s.poly_ws && s.poly_ws !== 'n/a')
+      addLog('Poly WS: ' + prevStatus.poly_ws + ' → ' + s.poly_ws,
+             s.poly_ws === 'connected' ? 'good' : 'err');
+    if (prevStatus.circuit_breaker !== s.circuit_breaker)
+      addLog('Circuit breaker: ' + s.circuit_breaker,
+             s.circuit_breaker === 'ok' ? 'good' : 'err');
+    if (prevStatus.markets_tracked !== s.markets_tracked)
+      addLog('Markets tracked: ' + prevStatus.markets_tracked + ' → ' + s.markets_tracked, 'info');
+  } else {
+    addLog('Connected · ' + s.mode + ' · ' + s.app_env + ' · ' + s.markets_tracked + ' markets', 'good');
+  }
+  prevStatus = s;
+}
+
+function setConn(id, val) {
+  const el = document.getElementById(id);
+  let cls, txt;
+  if      (val === 'connected')    { cls = 's-ok';   txt = 'CONN'; }
+  else if (val === 'disconnected') { cls = 's-err';  txt = 'DISC'; }
+  else if (val === 'tripped')      { cls = 's-err';  txt = 'HALT'; }
+  else if (val === 'na')           { cls = 's-na';   txt = 'N/A';  }
+  else                             { cls = 's-na';   txt = '—';    }
+  el.className = 'conn-val ' + cls;
+  el.innerHTML = '<div class="dot"></div><span>' + txt + '</span>';
+}
+
+// ─── OPPORTUNITIES ───────────────────────────────────────────────────────────
+function applyOpps(data) {
+  const opps    = data.opportunities  || [];
+  const spreads = data.wide_spreads   || [];
+
+  // ARBs
+  const oc = document.getElementById('oppContainer');
+  if (opps.length === 0) {
+    oc.innerHTML = '<div class="no-card clear"><span>●</span> NO ARB OPPORTUNITIES DETECTED</div>';
+  } else {
+    oc.innerHTML = opps.map(o => `
+      <div class="opp-card arb">
+        <div class="opp-top">
+          <div class="opp-market">${esc(o.market)}</div>
+          <div class="opp-type-tag tag-arb">SAME-PLATFORM ARB</div>
+        </div>
+        <div class="opp-prices">
+          <div class="p-pill p-yes">YES ${o.yes_ask}¢</div>
+          <span class="p-sep">+</span>
+          <div class="p-pill p-no">NO ${o.no_ask}¢</div>
+          <div class="p-profit">+${o.profit_cents}¢</div>
+        </div>
+        <div class="opp-ticker">${esc(o.kalshi_ticker)}</div>
+      </div>
+    `).join('');
+  }
+
+  // Spreads
+  const sc = document.getElementById('spreadContainer');
+  if (spreads.length === 0) {
+    sc.innerHTML = '<div class="no-card none"><span style="opacity:.35">●</span>&nbsp; None</div>';
+  } else {
+    sc.innerHTML = spreads.map(s => `
+      <div class="opp-card spread">
+        <div class="opp-top">
+          <div class="opp-market">${esc(s.market)}</div>
+          <div class="opp-type-tag tag-spread">WIDE SPREAD</div>
+        </div>
+        <div class="opp-prices">
+          <div class="p-pill p-yes">YES ${s.yes_ask}¢</div>
+          <span class="p-sep">+</span>
+          <div class="p-pill p-no">NO ${s.no_ask}¢</div>
+          <div class="p-spread">+${s.spread}¢</div>
+        </div>
+        <div class="opp-ticker">${esc(s.kalshi_ticker)}</div>
+      </div>
+    `).join('');
+  }
+
+  // Change log
+  if (prevOpps) {
+    const po = prevOpps.opportunities || [];
+    const ps = prevOpps.wide_spreads  || [];
+    if (opps.length > po.length) {
+      opps.forEach((o, i) => {
+        if (i >= po.length)
+          addLog('ARB: ' + o.market + ' | YES ' + o.yes_ask + '¢ + NO ' + o.no_ask + '¢ → +' + o.profit_cents + '¢', 'arb');
+      });
+    } else if (opps.length < po.length) {
+      addLog('Arb closed (' + po.length + ' → ' + opps.length + ' opportunities)', 'info');
+    }
+    if (spreads.length > ps.length) {
+      spreads.forEach((s, i) => {
+        if (i >= ps.length)
+          addLog('Wide spread: ' + s.market + ' | +' + s.spread + '¢', 'warn');
+      });
+    }
+  }
+  prevOpps = data;
+}
+
+// ─── SPARKLINE ───────────────────────────────────────────────────────────────
+function resizeSpark() {
+  if (!sparkCanvas) return;
+  sparkCanvas.width  = sparkCanvas.offsetWidth  * devicePixelRatio;
+  sparkCanvas.height = sparkCanvas.offsetHeight * devicePixelRatio;
+  sparkCtx.scale(devicePixelRatio, devicePixelRatio);
+  drawSpark();
+}
+
+function drawSpark() {
+  if (!sparkCtx || sparkData.length < 2) return;
+  const W = sparkCanvas.offsetWidth;
+  const H = sparkCanvas.offsetHeight;
+  sparkCtx.clearRect(0, 0, W, H);
+
+  const min = Math.min(...sparkData);
+  const max = Math.max(...sparkData);
+  const range = max - min || 1;
+  const pad = 4;
+
+  const pts = sparkData.map((v, i) => ({
+    x: pad + i / (sparkData.length - 1) * (W - pad * 2),
+    y: H - pad - (v - min) / range * (H - pad * 2),
+  }));
+
+  // Fill
+  sparkCtx.beginPath();
+  sparkCtx.moveTo(pts[0].x, H);
+  pts.forEach(p => sparkCtx.lineTo(p.x, p.y));
+  sparkCtx.lineTo(pts[pts.length - 1].x, H);
+  sparkCtx.closePath();
+  const grad = sparkCtx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(56,139,253,0.22)');
+  grad.addColorStop(1, 'rgba(56,139,253,0)');
+  sparkCtx.fillStyle = grad;
+  sparkCtx.fill();
+
+  // Line
+  sparkCtx.beginPath();
+  sparkCtx.moveTo(pts[0].x, pts[0].y);
+  pts.forEach(p => sparkCtx.lineTo(p.x, p.y));
+  sparkCtx.strokeStyle = '#388bfd';
+  sparkCtx.lineWidth = 1.5;
+  sparkCtx.lineJoin = 'round';
+  sparkCtx.stroke();
+
+  // Last dot
+  const last = pts[pts.length - 1];
+  sparkCtx.beginPath();
+  sparkCtx.arc(last.x, last.y, 3, 0, Math.PI * 2);
+  sparkCtx.fillStyle = '#79c0ff';
+  sparkCtx.fill();
+}
+
+// ─── ACTIVITY LOG ────────────────────────────────────────────────────────────
+function addLog(msg, level = 'info') {
+  const now  = new Date();
+  const time = now.toTimeString().slice(0, 8);
+  log.unshift({ time, msg, level });
+  if (log.length > MAX_LOG) log.length = MAX_LOG;
+  renderLog();
+}
+
+function renderLog() {
+  document.getElementById('logScroll').innerHTML = log.map(e =>
+    `<div class="log-row log-${e.level}">` +
+      `<span class="log-t">${e.time}</span>` +
+      `<span class="log-m">${esc(e.msg)}</span>` +
+    `</div>`
+  ).join('');
+}
+
+// ─── CLOCKS ──────────────────────────────────────────────────────────────────
+function tickClocks() {
+  if (!lastFetch) return;
+  const elapsed = Math.floor((Date.now() - lastFetch) / 1000);
+  setText('uptimeLbl',  fmtUptime(lastUptimeSec + elapsed));
+  setText('updatedLbl', fmtAgo(elapsed));
+}
+
+function fmtUptime(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return h + 'h ' + pad(m) + 'm ' + pad(sec) + 's';
+  if (m > 0) return m + 'm ' + pad(sec) + 's';
+  return sec + 's';
+}
+
+function fmtAgo(secs) {
+  if (secs < 5)  return 'just now';
+  if (secs < 60) return secs + 's ago';
+  return Math.floor(secs / 60) + 'm ago';
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+// ─── STALE ───────────────────────────────────────────────────────────────────
+function checkStale() {
+  if (!lastFetch) return;
+  const stale = Date.now() - lastFetch > 30_000;
+  document.getElementById('staleBanner').style.display = stale ? 'block' : 'none';
+}
+
+function hideBanner() {
+  document.getElementById('staleBanner').style.display = 'none';
+}
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>

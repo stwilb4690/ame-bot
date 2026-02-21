@@ -437,16 +437,18 @@ impl DiscoveryClient {
                 async move {
                     let _permit = semaphore.acquire().await.ok()?;
                     match gamma.lookup_market(&task.poly_slug).await {
-                        Ok(Some((yes_token, no_token))) => {
+                        Ok(Some((yes_token, no_token, actual_slug))) => {
                             let team_suffix = extract_team_suffix(&task.market.ticker);
                             Some(MarketPair {
-                                pair_id: format!("{}-{}", task.poly_slug, task.market.ticker).into(),
+                                pair_id: format!("{}-{}", actual_slug, task.market.ticker).into(),
                                 league: task.league.into(),
                                 market_type: task.market_type,
                                 description: format!("{} - {}", task.event.title, task.market.title).into(),
                                 kalshi_event_ticker: task.event.event_ticker.clone().into(),
                                 kalshi_market_ticker: task.market.ticker.into(),
-                                poly_slug: task.poly_slug.into(),
+                                // Store the slug exactly as Gamma returned it — this is what
+                                // the Polymarket US API expects as `marketSlug`.
+                                poly_slug: actual_slug.into(),
                                 poly_yes_token: yes_token.into(),
                                 poly_no_token: no_token.into(),
                                 line_value: task.market.floor_strike,

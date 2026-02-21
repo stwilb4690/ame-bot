@@ -1,0 +1,101 @@
+::1 - - [21/Feb/2026 14:10:26] code 400, message Bad request syntax ('\\x16\\x03\\x01\\x05÷\\x01\\x00\\x05ó\\x03\\x03')
+::1 - - [21/Feb/2026 14:10:26] "\x16\x03\x01\x05÷\x01\x00\x05ó\x03\x03" 400 -
+::1 - - [21/Feb/2026 14:10:26] code 400, message Bad request version ('\\x94!\\x92¼Õ\\x90\\x99²ó¹\\x00*ÚÚ\\x13\\x02\\x13\\x03\\x13\\x01À,À+Ì©À0À/Ì¨À')
+::1 - - [21/Feb/2026 14:10:26] "\x16\x03\x01\x05÷\x01\x00\x05ó\x03\x03¸L2/uµ\x9b<\x97\x86Ó?\x12\x15tò\x0d\x07\x83ª\x16«ßB\x87£`&ç\x06\x14v ·ÇV*2ýì§ç2Ú\x06kÒ°|5B \x9f¤ \x94!\x92¼Õ\x90\x99²ó¹\x00*ÚÚ\x13\x02\x13\x03\x13\x01À,À+Ì©À0À/Ì¨À" 400 -
+::1 - - [21/Feb/2026 14:10:26] code 400, message Bad request version ('F\\x89þ¸YÙ\\x13¯ðÂÍ}=\\x00*\\x1a\\x1a\\x13\\x02\\x13\\x03\\x13\\x01À,À+Ì©À0À/Ì¨À')
+::1 - - [21/Feb/2026 14:10:26] "\x16\x03\x01\x05÷\x01\x00\x05ó\x03\x03i´´\x04ôÕ¬Îæ¿Dø<\x93D'cXÿ\x97¸\x04näÞ%.\x99X\x9b\x91T çCÐ"\x8dòaºÞûNÃb\x9c"9DÖ\x85F\x89þ¸YÙ\x13¯ðÂÍ}=\x00*\x1a\x1a\x13\x02\x13\x03\x13\x01À,À+Ì©À0À/Ì¨À" 400 -
+::1 - - [21/Feb/2026 14:10:26] code 400, message Bad request version ('ÀÍé\\x95\\x00*\\x1a\\x1a\\x13\\x02\\x13\\x03\\x13\\x01À,À+Ì©À0À/Ì¨À')
+::1 - - [21/Feb/2026 14:10:26] "\x16\x03\x01\x05÷\x01\x00\x05ó\x03\x03\x81ö\x99-j\x1bt\x1fñs`\x19âWÒ¼ÞNÎ*Ð]VèK\x88>¶:µ¤\x0c ~ÿ9E#\x82C;\x8b¨:¬¥ü°L\x0f'?\x1b7¶éã?³ \x1cÀÍé\x95\x00*\x1a\x1a\x13\x02\x13\x03\x13\x01À,À+Ì©À0À/Ì¨À" 400 -
+::1 - - [21/Feb/2026 14:10:26] code 400, message Bad HTTP/0.9 request type ('\\x16\\x03\\x01\\x05÷\\x01\\x00\\x05ó\\x03\\x03³ÆÔ-\\x86¶\\x07t\\x07\\x12\\x8c0Y)\\x12L')
+::1 - - [21/Feb/2026 14:10:26] "\x16\x03\x01\x05÷\x01\x00\x05ó\x03\x03³ÆÔ-\x86¶\x07t\x07\x12\x8c0Y)\x12L\x1dÒ4Àt\x92" 400 -
+::1 - - [21/Feb/2026 14:10:26] code 400, message Bad request version ('Ï\\x95xµÈ\\x08TÿP·mÐ7[Ã\\x00*\\x1a\\x1a\\x13\\x02\\x13\\x03\\x13\\x01À,À+Ì©À0À/Ì¨À')
+::1 - - [21/Feb/2026 14:10:26] "\x16\x03\x01\x05÷\x01\x00\x05ó\x03\x03c\x8df\x9e©¢VªÀö\\HJ{m:Å;v¾\x90\x0bU¹+üy\x83<U!\x0e c²n\x12 KF]\x95\x90\x1eï\x1e9¼Ò\x85Ï\x95xµÈ\x08TÿP·mÐ7[Ã\x00*\x1a\x1a\x13\x02\x13\x03\x13\x01À,À+Ì©À0À/Ì¨À" 400 -
+::1 - - [21/Feb/2026 14:10:26] code 400, message Bad request version ('>Ý\\x9f\\x18©õóÝ\\x08å`2\\x00*ÊÊ\\x13\\x02\\x13\\x03\\x13\\x01À,À+Ì©À0À/Ì¨À')
+::1 - - [21/Feb/2026 14:10:26] "\x16\x03\x01\x05÷\x01\x00\x05ó\x03\x03tä\x0bßjB"\x04Ø¡Û\x12Õ\x9du>å~\x17+§ß;rÏF;¬\\<¯} ®¬ºÍîõ\x88ê°×¦î¥¨¡ü\x1eC±\x1c>Ý\x9f\x18©õóÝ\x08å`2\x00*ÊÊ\x13\x02\x13\x03\x13\x01À,À+Ì©À0À/Ì¨À" 400 -
+::1 - - [21/Feb/2026 14:10:26] code 400, message Bad request version ('\\x9dêâÓ*"Hi·Á\\x1aÂx°Xj\\x8b§7ØÒ\\x92ÂÕ@«q¥lª\\\\å\\x00*úú\\x13\\x02\\x13\\x03\\x13\\x01À,À+Ì©À0À/Ì¨À')
+::1 - - [21/Feb/2026 14:10:26] "\x16\x03\x01\x05÷\x01\x00\x05ó\x03\x03Üå½\x8f¨½)kÎ\x1c\x7f÷©@´[Ö\x7f\x8f\x8dìå*©\x0c/:\x96\x9a/B\x82 \x9dêâÓ*"Hi·Á\x1aÂx°Xj\x8b§7ØÒ\x92ÂÕ@«q¥lª\\å\x00*úú\x13\x02\x13\x03\x13\x01À,À+Ì©À0À/Ì¨À" 400 -
+::1 - - [21/Feb/2026 14:11:24] "GET /dashboard.html HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:24] "GET /state/status.json?_=1771701084357 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:24] "GET /state/opportunities.json?_=1771701084357 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:24] code 404, message File not found
+::1 - - [21/Feb/2026 14:11:24] "GET /favicon.ico HTTP/1.1" 404 -
+::1 - - [21/Feb/2026 14:11:27] "GET /state/status.json?_=1771701087357 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:27] "GET /state/opportunities.json?_=1771701087358 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:30] "GET /state/status.json?_=1771701090358 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:30] "GET /state/opportunities.json?_=1771701090358 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:33] "GET /state/status.json?_=1771701093358 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:33] "GET /state/opportunities.json?_=1771701093359 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:36] "GET /state/status.json?_=1771701096359 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:36] "GET /state/opportunities.json?_=1771701096359 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:39] "GET /state/status.json?_=1771701099359 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:39] "GET /state/opportunities.json?_=1771701099359 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:42] "GET /state/status.json?_=1771701102360 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:42] "GET /state/opportunities.json?_=1771701102360 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:45] "GET /state/status.json?_=1771701105360 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:45] "GET /state/opportunities.json?_=1771701105361 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:48] "GET /state/status.json?_=1771701108361 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:48] "GET /state/opportunities.json?_=1771701108362 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:51] "GET /state/status.json?_=1771701111362 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:51] "GET /state/opportunities.json?_=1771701111363 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:54] "GET /state/status.json?_=1771701114363 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:54] "GET /state/opportunities.json?_=1771701114363 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:57] "GET /state/status.json?_=1771701117364 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:11:57] "GET /state/opportunities.json?_=1771701117364 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:00] "GET /state/status.json?_=1771701120364 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:00] "GET /state/opportunities.json?_=1771701120365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:03] "GET /state/status.json?_=1771701123364 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:03] "GET /state/opportunities.json?_=1771701123365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:06] "GET /state/status.json?_=1771701126364 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:06] "GET /state/opportunities.json?_=1771701126365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:09] "GET /state/status.json?_=1771701129364 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:09] "GET /state/opportunities.json?_=1771701129365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:12] "GET /state/status.json?_=1771701132365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:12] "GET /state/opportunities.json?_=1771701132365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:15] "GET /state/status.json?_=1771701135365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:15] "GET /state/opportunities.json?_=1771701135365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:18] "GET /state/status.json?_=1771701138365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:18] "GET /state/opportunities.json?_=1771701138365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:21] "GET /state/status.json?_=1771701141365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:21] "GET /state/opportunities.json?_=1771701141365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:24] "GET /state/status.json?_=1771701144365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:24] "GET /state/opportunities.json?_=1771701144365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:27] "GET /state/status.json?_=1771701147365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:27] "GET /state/opportunities.json?_=1771701147366 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:30] "GET /state/status.json?_=1771701150365 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:30] "GET /state/opportunities.json?_=1771701150366 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:33] "GET /state/status.json?_=1771701153366 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:33] "GET /state/opportunities.json?_=1771701153366 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:36] "GET /state/status.json?_=1771701156366 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:36] "GET /state/opportunities.json?_=1771701156366 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:39] "GET /state/status.json?_=1771701159366 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:39] "GET /state/opportunities.json?_=1771701159366 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:42] "GET /state/status.json?_=1771701162366 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:42] "GET /state/opportunities.json?_=1771701162367 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:45] "GET /state/status.json?_=1771701165366 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:45] "GET /state/opportunities.json?_=1771701165367 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:48] "GET /state/status.json?_=1771701168367 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:48] "GET /state/opportunities.json?_=1771701168367 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:51] "GET /state/status.json?_=1771701171367 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:51] "GET /state/opportunities.json?_=1771701171367 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:54] "GET /state/status.json?_=1771701174367 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:54] "GET /state/opportunities.json?_=1771701174367 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:57] "GET /state/status.json?_=1771701177368 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:12:57] "GET /state/opportunities.json?_=1771701177368 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:00] "GET /state/status.json?_=1771701180368 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:00] "GET /state/opportunities.json?_=1771701180368 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:03] "GET /state/status.json?_=1771701183368 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:03] "GET /state/opportunities.json?_=1771701183369 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:06] "GET /state/status.json?_=1771701186369 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:06] "GET /state/opportunities.json?_=1771701186369 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:09] "GET /state/status.json?_=1771701189369 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:09] "GET /state/opportunities.json?_=1771701189369 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:12] "GET /state/status.json?_=1771701192369 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:12] "GET /state/opportunities.json?_=1771701192370 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:15] "GET /state/status.json?_=1771701195370 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:15] "GET /state/opportunities.json?_=1771701195371 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:18] "GET /state/status.json?_=1771701198371 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:18] "GET /state/opportunities.json?_=1771701198371 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:21] "GET /state/status.json?_=1771701201372 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:21] "GET /state/opportunities.json?_=1771701201372 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:24] "GET /state/status.json?_=1771701204372 HTTP/1.1" 200 -
+::1 - - [21/Feb/2026 14:13:24] "GET /state/opportunities.json?_=1771701204373 HTTP/1.1" 200 -
