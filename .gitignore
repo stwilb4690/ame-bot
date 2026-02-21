@@ -6,3 +6,7 @@ claude.md
 .DS_Store
 positions.json
 .discovery_cache.json
+.env
+keys/
+.env
+keys/
