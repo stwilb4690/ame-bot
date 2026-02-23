@@ -14,6 +14,7 @@ mod diagnose;
 mod discovery;
 mod execution;
 mod kalshi;
+mod monitor;
 mod polymarket;
 mod polymarket_clob;
 mod polymarket_us;
@@ -27,19 +28,21 @@ use clap::Parser;
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
 use tracing::{error, info, warn};
+use chrono::Utc;
 
 use cache::TeamCache;
 use circuit_breaker::{CircuitBreaker, CircuitBreakerConfig};
-use config::{AppMode, arb_threshold, ENABLED_LEAGUES, WS_RECONNECT_DELAY_SECS, app_mode, state_write_interval_secs};
+use config::{AppMode, arb_threshold, ENABLED_LEAGUES, WS_RECONNECT_DELAY_SECS, app_mode, state_write_interval_secs, heartbeat_interval_secs};
 use discovery::DiscoveryClient;
 use execution::{ExecutionEngine, create_execution_channel, run_execution_loop};
 use kalshi::{KalshiConfig, KalshiApiClient};
 use polymarket_clob::{PolymarketAsyncClient, PreparedCreds, SharedAsyncClient};
 use polymarket_us::PolymarketUsClient;
+use monitor::run_position_monitor;
 use position_tracker::{PositionTracker, create_position_channel, position_writer_loop};
 use state_writer::{ConfigOverrides, StateWriter, run_state_writer};
 use telegram::TelegramClient;
-use types::{GlobalState, PriceCents, kalshi_fee_cents};
+use types::{GlobalState, PriceCents, kalshi_effective_fee_cents};
 
 /// Polymarket CLOB API host
 const POLY_CLOB_HOST: &str = "https://clob.polymarket.com";
@@ -136,43 +139,6 @@ async fn main() -> Result<()> {
         .context("Failed to load Kalshi credentials (KALSHI_API_KEY_ID and KALSHI_PRIVATE_KEY_PATH required)")?;
     info!("[KALSHI] API key loaded");
 
-    // === Load Polymarket credentials (required for full mode, optional otherwise) ===
-    let poly_async: Option<Arc<SharedAsyncClient>> = if mode == AppMode::Full {
-        let poly_private_key = std::env::var("POLY_PRIVATE_KEY")
-            .context("POLY_PRIVATE_KEY required in full mode")?;
-        let poly_funder = std::env::var("POLY_FUNDER")
-            .context("POLY_FUNDER required in full mode")?;
-
-        info!("[POLYMARKET] Initialising CLOB client...");
-        let client = PolymarketAsyncClient::new(
-            POLY_CLOB_HOST,
-            POLYGON_CHAIN_ID,
-            &poly_private_key,
-            &poly_funder,
-        )?;
-        let api_creds = client.derive_api_key(0).await?;
-        let prepared = PreparedCreds::from_api_creds(&api_creds)?;
-        let shared = Arc::new(SharedAsyncClient::new(client, prepared, POLYGON_CHAIN_ID));
-        match shared.load_cache(".clob_market_cache.json") {
-            Ok(n) => info!("[POLYMARKET] Loaded {} neg_risk entries", n),
-            Err(e) => warn!("[POLYMARKET] No neg_risk cache: {}", e),
-        }
-        info!("[POLYMARKET] Client ready");
-        Some(shared)
-    } else {
-        if mode == AppMode::Monitor {
-            match (std::env::var("POLY_PRIVATE_KEY"), std::env::var("POLY_FUNDER")) {
-                (Ok(pk), Ok(funder)) if !pk.is_empty() && !funder.is_empty() => {
-                    info!("[POLYMARKET] Credentials present but mode=monitor — read-only WebSocket only");
-                }
-                _ => {
-                    info!("[POLYMARKET] No credentials — read-only WebSocket (prices only, no execution)");
-                }
-            }
-        }
-        None
-    };
-
     // === Polymarket US Retail API client (optional, Ed25519 auth) ===
     let poly_us_client: Option<Arc<PolymarketUsClient>> =
         match (std::env::var("POLY_US_API_KEY"), std::env::var("POLY_US_API_SECRET")) {
@@ -194,6 +160,50 @@ async fn main() -> Result<()> {
             }
         };
 
+    // === Load Polymarket CLOB credentials (required in full mode only when US client is absent) ===
+    let poly_async: Option<Arc<SharedAsyncClient>> = if mode == AppMode::Full {
+        match (std::env::var("POLY_PRIVATE_KEY"), std::env::var("POLY_FUNDER")) {
+            (Ok(pk), Ok(funder)) if !pk.is_empty() && !funder.is_empty() => {
+                info!("[POLYMARKET] Initialising CLOB client...");
+                let client = PolymarketAsyncClient::new(
+                    POLY_CLOB_HOST,
+                    POLYGON_CHAIN_ID,
+                    &pk,
+                    &funder,
+                )?;
+                let api_creds = client.derive_api_key(0).await?;
+                let prepared = PreparedCreds::from_api_creds(&api_creds)?;
+                let shared = Arc::new(SharedAsyncClient::new(client, prepared, POLYGON_CHAIN_ID));
+                match shared.load_cache(".clob_market_cache.json") {
+                    Ok(n) => info!("[POLYMARKET] Loaded {} neg_risk entries", n),
+                    Err(e) => warn!("[POLYMARKET] No neg_risk cache: {}", e),
+                }
+                info!("[POLYMARKET] Client ready");
+                Some(shared)
+            }
+            _ => {
+                if poly_us_client.is_none() {
+                    warn!("[POLYMARKET] No CLOB credentials (POLY_PRIVATE_KEY/POLY_FUNDER) and no US client — Polymarket execution unavailable in full mode");
+                } else {
+                    info!("[POLYMARKET] CLOB credentials not set — using US client for Polymarket execution");
+                }
+                None
+            }
+        }
+    } else {
+        if mode == AppMode::Monitor {
+            match (std::env::var("POLY_PRIVATE_KEY"), std::env::var("POLY_FUNDER")) {
+                (Ok(pk), Ok(funder)) if !pk.is_empty() && !funder.is_empty() => {
+                    info!("[POLYMARKET] Credentials present but mode=monitor — read-only WebSocket only");
+                }
+                _ => {
+                    info!("[POLYMARKET] No credentials — read-only WebSocket (prices only, no execution)");
+                }
+            }
+        }
+        None
+    };
+
     // === Telegram client (optional) ===
     let telegram = TelegramClient::from_env();
     if telegram.is_some() {
@@ -210,6 +220,7 @@ async fn main() -> Result<()> {
     let discovery = DiscoveryClient::new(
         KalshiApiClient::new(kalshi_config.clone()),
         team_cache,
+        poly_us_client.clone(),
     );
 
     let force_discovery = std::env::var("FORCE_DISCOVERY")
@@ -268,11 +279,21 @@ async fn main() -> Result<()> {
     // === Circuit breaker ===
     let circuit_breaker = Arc::new(CircuitBreaker::new(CircuitBreakerConfig::from_env()));
 
+    // === Position tracker (shared between execution engine and state writer) ===
+    let position_tracker: Option<Arc<RwLock<PositionTracker>>> = if mode == AppMode::Full {
+        Some(Arc::new(RwLock::new(PositionTracker::new())))
+    } else {
+        None
+    };
+
     // === State writer ===
     let state_writer = Arc::new(StateWriter::new(
         state.clone(),
         overrides.clone(),
         circuit_breaker.clone(),
+        poly_us_client.clone(),
+        Some(kalshi_api.clone()),
+        position_tracker.clone(),
     ));
     let kalshi_connected_flag = Arc::clone(&state_writer.kalshi_connected);
     let poly_connected_flag = Arc::clone(&state_writer.poly_connected);
@@ -311,12 +332,29 @@ async fn main() -> Result<()> {
     let (exec_tx, exec_rx) = create_execution_channel();
 
     if mode == AppMode::Full {
-        let position_tracker = Arc::new(RwLock::new(PositionTracker::new()));
+        let position_tracker = position_tracker.clone().expect("position_tracker set above for Full mode");
         let (position_channel, position_rx) = create_position_channel();
-        tokio::spawn(position_writer_loop(position_rx, position_tracker));
+        tokio::spawn(position_writer_loop(position_rx, position_tracker.clone()));
+
+        // Position monitor — checks open positions every 30 s for early-exit opportunities.
+        {
+            let mon_tracker  = position_tracker.clone();
+            let mon_state    = state.clone();
+            let mon_kalshi   = kalshi_api.clone();
+            let mon_poly_async = poly_async.clone();
+            let mon_poly_us  = poly_us_client.clone();
+            let mon_shutdown = shutdown_tx.subscribe();
+            tokio::spawn(async move {
+                run_position_monitor(
+                    mon_tracker, mon_state, mon_kalshi,
+                    mon_poly_async, mon_poly_us,
+                    dry_run, mon_shutdown,
+                ).await;
+            });
+        }
 
         let poly_async_for_engine = poly_async.clone()
-            .expect("poly_async must be Some in full mode");
+            ;
 
         let engine = Arc::new(ExecutionEngine::new(
             kalshi_api.clone(),
@@ -325,6 +363,7 @@ async fn main() -> Result<()> {
             state.clone(),
             circuit_breaker.clone(),
             position_channel,
+            telegram.clone(),
             dry_run,
         ));
 
@@ -429,13 +468,25 @@ async fn main() -> Result<()> {
         let hb_state = state.clone();
         let hb_threshold = threshold_cents;
         let tg = telegram.clone();
+        let hb_writer = Arc::clone(&state_writer);
+        let hb_interval = heartbeat_interval_secs();
         let mut hb_shutdown = shutdown_tx.subscribe();
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
+            let mut tick = tokio::time::interval(tokio::time::Duration::from_secs(60));
+            let mut last_logged: Option<std::time::Instant> = None;
             loop {
                 tokio::select! {
-                    _ = interval.tick() => {
-                        run_heartbeat(&hb_state, hb_threshold, tg.as_ref());
+                    _ = tick.tick() => {
+                        let should_log = last_logged
+                            .map(|t| t.elapsed().as_secs() >= hb_interval)
+                            .unwrap_or(true);
+                        run_heartbeat(
+                            &hb_state, hb_threshold, tg.as_ref(),
+                            &hb_writer, should_log,
+                        ).await;
+                        if should_log {
+                            last_logged = Some(std::time::Instant::now());
+                        }
                     }
                     _ = hb_shutdown.recv() => { break; }
                 }
@@ -511,15 +562,17 @@ fn market_info(market: &types::AtomicMarketState) -> (String, String) {
 
 // === Heartbeat ===
 
-fn run_heartbeat(
+async fn run_heartbeat(
     state: &GlobalState,
     threshold_cents: PriceCents,
     telegram: Option<&Arc<TelegramClient>>,
+    writer: &state_writer::StateWriter,
+    log_summary: bool,
 ) {
     let market_count = state.market_count();
-    let mut with_kalshi = 0;
-    let mut with_poly = 0;
-    let mut with_both = 0;
+    let mut with_kalshi = 0u32;
+    let mut with_poly = 0u32;
+    let mut with_both = 0u32;
     let mut best_arb: Option<(u16, u16, u16, u16, u16, u16, u16, bool)> = None;
 
     for market in state.markets.iter().take(market_count) {
@@ -531,9 +584,9 @@ fn run_heartbeat(
         if p_yes > 0 || p_no > 0 { with_poly += 1; }
         if has_k && has_p {
             with_both += 1;
-            let fee1 = kalshi_fee_cents(k_no);
+            let fee1 = kalshi_effective_fee_cents(k_no);
             let cost1 = p_yes + k_no + fee1;
-            let fee2 = kalshi_fee_cents(k_yes);
+            let fee2 = kalshi_effective_fee_cents(k_yes);
             let cost2 = k_yes + fee2 + p_no;
             let (best_cost, best_fee, is_poly_yes) = if cost1 <= cost2 {
                 (cost1, fee1, true)
@@ -546,25 +599,55 @@ fn run_heartbeat(
         }
     }
 
+    // Always log immediately when best cross-platform spread is below threshold.
+    if let Some((cost, mid, p_yes, k_no, k_yes, p_no, fee, is_poly_yes)) = best_arb {
+        if cost < threshold_cents {
+            let desc = state.get_by_id(mid)
+                .and_then(|m| m.pair.as_ref())
+                .map(|p| &*p.description)
+                .unwrap_or("Unknown");
+            let leg_str = if is_poly_yes {
+                format!("P_yes({}¢)+K_no({}¢)+fee({}¢)={}¢", p_yes, k_no, fee, cost)
+            } else {
+                format!("K_yes({}¢)+P_no({}¢)+fee({}¢)={}¢", k_yes, p_no, fee, cost)
+            };
+            let gap = cost as i16 - threshold_cents as i16;
+            info!("🎯 Opportunity | {} | {} | gap={:+}¢", desc, leg_str, gap);
+        }
+    }
+
+    if !log_summary {
+        return;
+    }
+
+    // Full status summary (logged at most every HEARTBEAT_INTERVAL_SECS).
+    let uptime_str = format_uptime(writer.uptime_secs());
+    let k_bal = format_balance_dollars(writer.kalshi_balance_cents_opt());
+    let p_bal = format_balance_dollars(writer.poly_balance_cents_opt());
+    let trades = count_trades_today().await;
+    let best_spread_str = match best_arb {
+        Some((cost, mid, _, _, _, _, _, _)) => {
+            let desc = state.get_by_id(mid)
+                .and_then(|m| m.pair.as_ref())
+                .map(|p| p.description.to_string())
+                .unwrap_or_else(|| "Unknown".to_string());
+            format!("{}¢ ({})", cost, desc)
+        }
+        None => "none".to_string(),
+    };
+
     info!(
-        "💓 Heartbeat | {} total, {} w/K, {} w/P, {} w/Both | threshold={}¢",
-        market_count, with_kalshi, with_poly, with_both, threshold_cents
+        "💓 Status | uptime: {} | markets: {} dual-feed | balances: K={} P={} | threshold: {}¢ | best spread: {} | daily P&L: +$0.00 | trades today: {}",
+        uptime_str, with_both, k_bal, p_bal, threshold_cents, best_spread_str, trades
     );
 
-    if let Some((cost, mid, p_yes, k_no, k_yes, p_no, fee, is_poly_yes)) = best_arb {
+    if let Some((cost, _mid, p_yes, k_no, k_yes, p_no, fee, is_poly_yes)) = best_arb {
         let gap = cost as i16 - threshold_cents as i16;
-        let desc = state.get_by_id(mid)
-            .and_then(|m| m.pair.as_ref())
-            .map(|p| &*p.description)
-            .unwrap_or("Unknown");
-
         let leg_str = if is_poly_yes {
             format!("P_yes({}¢)+K_no({}¢)+fee({}¢)={}¢", p_yes, k_no, fee, cost)
         } else {
             format!("K_yes({}¢)+P_no({}¢)+fee({}¢)={}¢", k_yes, p_no, fee, cost)
         };
-        info!("   📊 Best: {} | {} | gap={:+}¢", desc, leg_str, gap);
-
         if let Some(tg) = telegram {
             let summary = format!(
                 "Markets: {} total | {}/{}/{} K/P/Both\nBest spread: {} | gap={:+}¢",
@@ -574,6 +657,31 @@ fn run_heartbeat(
         }
     } else if with_both == 0 {
         warn!("   ⚠️  No markets with both Kalshi + Poly prices");
+    }
+}
+
+fn format_uptime(secs: u64) -> String {
+    let h = secs / 3600;
+    let m = (secs % 3600) / 60;
+    if h > 0 { format!("{}h {}m", h, m) } else { format!("{}m", m) }
+}
+
+fn format_balance_dollars(cents: Option<i64>) -> String {
+    match cents {
+        Some(c) => format!("${:.2}", c as f64 / 100.0),
+        None => "?".to_string(),
+    }
+}
+
+/// Count entries in state/trades.jsonl whose timestamp starts with today's UTC date.
+async fn count_trades_today() -> usize {
+    let today = Utc::now().format("%Y-%m-%d").to_string();
+    match tokio::fs::read_to_string("state/trades.jsonl").await {
+        Ok(content) => content
+            .lines()
+            .filter(|l| l.contains(&format!("\"timestamp\":\"{}",  today)))
+            .count(),
+        Err(_) => 0,
     }
 }
 

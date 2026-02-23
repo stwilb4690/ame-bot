@@ -157,6 +157,30 @@ impl TelegramClient {
         self.send_alert(AlertType::CircuitBreaker, 0, msg);
     }
 
+    /// Format and send a trade-executed alert.
+    pub fn alert_trade_executed(
+        self: &Arc<Self>,
+        market_id: u16,
+        description: &str,
+        arb_type: &str,
+        kalshi_filled: i64,
+        poly_filled: i64,
+        total_cost_cents: i64,
+        profit_cents: i16,
+        poly_slug: &str,
+    ) {
+        let msg = format!(
+            "{} TRADE EXECUTED\nMarket: {}\nType: {}\nKalshi: {}x  Poly: {}x\nTotal cost: ${:.2}\nExpected profit: {}¢\nSlug: {}",
+            AlertType::TradeExecuted.emoji(),
+            description, arb_type,
+            kalshi_filled, poly_filled,
+            total_cost_cents as f64 / 100.0,
+            profit_cents,
+            poly_slug,
+        );
+        self.send_alert(AlertType::TradeExecuted, market_id, msg);
+    }
+
     /// Format and send a heartbeat/summary alert.
     pub fn alert_heartbeat(self: &Arc<Self>, summary: &str) {
         let msg = format!("{} HEARTBEAT\n{}", AlertType::Heartbeat.emoji(), summary);

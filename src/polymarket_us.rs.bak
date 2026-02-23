@@ -1,0 +1,376 @@
+// src/polymarket_us.rs
+// Polymarket US Retail API Client — Ed25519 authenticated REST
+//
+// Auth scheme (per POLYMARKET_US_API_REFERENCE.md):
+//   X-PM-Access-Key:  <api-key UUID>
+//   X-PM-Timestamp:   <unix-ms>
+//   X-PM-Signature:   base64( ed25519_sign(seed, timestamp_ms + METHOD + path) )
+//
+// Secret is a base64-encoded 64-byte Ed25519 keypair; first 32 bytes are the seed.
+
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use anyhow::{anyhow, Result};
+use base64::engine::general_purpose::STANDARD as B64;
+use base64::Engine;
+use ed25519_dalek::{Signer, SigningKey};
+use reqwest::header::{HeaderMap, HeaderValue};
+use serde::{Deserialize, Serialize};
+
+const BASE_URL: &str = "https://api.polymarket.us";
+
+// ============================================================================
+// CLIENT
+// ============================================================================
+
+pub struct PolymarketUsClient {
+    api_key: String,
+    signing_key: SigningKey,
+    http: reqwest::Client,
+    /// Pre-validated header value for X-PM-Access-Key (avoid per-request allocation)
+    api_key_header: HeaderValue,
+}
+
+impl PolymarketUsClient {
+    /// Construct from an API key UUID and a base64-encoded 64-byte Ed25519 keypair.
+    /// The first 32 bytes of the decoded secret are used as the signing seed.
+    pub fn new(api_key: &str, api_secret_b64: &str) -> Result<Self> {
+        let secret_bytes = B64
+            .decode(api_secret_b64.trim())
+            .map_err(|e| anyhow!("POLY_US_API_SECRET: base64 decode failed: {}", e))?;
+
+        if secret_bytes.len() < 32 {
+            return Err(anyhow!(
+                "POLY_US_API_SECRET must decode to ≥32 bytes (got {}); \
+                 expected 64-byte Ed25519 keypair",
+                secret_bytes.len()
+            ));
+        }
+
+        let seed: &[u8; 32] = secret_bytes[..32]
+            .try_into()
+            .map_err(|_| anyhow!("Failed to read 32-byte seed slice"))?;
+        let signing_key = SigningKey::from_bytes(seed);
+
+        let api_key_header = HeaderValue::from_str(api_key)
+            .map_err(|e| anyhow!("POLY_US_API_KEY is not a valid header value: {}", e))?;
+
+        let http = reqwest::Client::builder()
+            .pool_max_idle_per_host(4)
+            .pool_idle_timeout(std::time::Duration::from_secs(60))
+            .tcp_keepalive(std::time::Duration::from_secs(30))
+            .timeout(std::time::Duration::from_secs(15))
+            .build()?;
+
+        Ok(Self {
+            api_key: api_key.to_string(),
+            signing_key,
+            http,
+            api_key_header,
+        })
+    }
+
+    pub fn api_key(&self) -> &str {
+        &self.api_key
+    }
+
+    // -----------------------------------------------------------------------
+    // Internals
+    // -----------------------------------------------------------------------
+
+    fn timestamp_ms() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64
+    }
+
+    /// Build the three X-PM-* auth headers for a request.
+    fn auth_headers(&self, method: &str, path: &str) -> Result<HeaderMap> {
+        let ts = Self::timestamp_ms();
+        let ts_str = ts.to_string();
+
+        // Signature covers: timestamp_ms + METHOD + path
+        let msg = format!("{}{}{}", ts_str, method, path);
+
+        let sig = self.signing_key.sign(msg.as_bytes());
+        let sig_b64 = B64.encode(sig.to_bytes());
+
+        let mut headers = HeaderMap::with_capacity(5);
+        headers.insert("X-PM-Access-Key", self.api_key_header.clone());
+        headers.insert(
+            "X-PM-Timestamp",
+            HeaderValue::from_str(&ts_str)
+                .map_err(|e| anyhow!("timestamp header: {}", e))?,
+        );
+        headers.insert(
+            "X-PM-Signature",
+            HeaderValue::from_str(&sig_b64)
+                .map_err(|e| anyhow!("signature header: {}", e))?,
+        );
+        headers.insert("Content-Type", HeaderValue::from_static("application/json"));
+        headers.insert("Accept", HeaderValue::from_static("application/json"));
+        Ok(headers)
+    }
+
+    // -----------------------------------------------------------------------
+    // Public API methods
+    // -----------------------------------------------------------------------
+
+    /// GET /v1/account/balances — retrieve USD and position balances.
+    pub async fn get_balances(&self) -> Result<BalancesResponse> {
+        let path = "/v1/account/balances";
+        let url = format!("{}{}", BASE_URL, path);
+        let headers = self.auth_headers("GET", path)?;
+
+        let resp = self.http.get(&url).headers(headers).send().await?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(anyhow!("get_balances failed {}: {}", status, body));
+        }
+        Ok(resp.json().await?)
+    }
+
+    /// Returns the available cash balance in cents.
+    ///
+    /// Parses `response["balances"][0]["currentBalance"]` (integer dollars) and
+    /// converts to cents by multiplying by 100.
+    pub async fn get_cash_balance_cents(&self) -> Result<i64> {
+        let resp = self.get_balances().await?;
+        let data = &resp.data;
+
+        let dollars = data
+            .get("balances")
+            .and_then(|v| v.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|entry| entry.get("currentBalance"))
+            .and_then(|v| {
+                v.as_i64()
+                    .or_else(|| v.as_f64().map(|f| f.round() as i64))
+                    .or_else(|| v.as_str().and_then(|s| s.parse::<f64>().ok()).map(|f| f.round() as i64))
+            })
+            .ok_or_else(|| anyhow!("Could not parse balances[0].currentBalance from response: {}", data))?;
+
+        Ok(dollars * 100)
+    }
+
+    /// POST /v1/orders — place a limit order.
+    pub async fn place_limit_order(&self, req: &LimitOrderRequest) -> Result<OrderResponse> {
+        let path = "/v1/orders";
+        let url = format!("{}{}", BASE_URL, path);
+        let body = serde_json::to_string(req)?;
+        let headers = self.auth_headers("POST", path)?;
+
+        let resp = self
+            .http
+            .post(&url)
+            .headers(headers)
+            .body(body)
+            .send()
+            .await?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            return Err(anyhow!("place_limit_order failed {}: {}", status, text));
+        }
+        Ok(resp.json().await?)
+    }
+
+    /// POST /v1/order/{orderId}/cancel — cancel a specific order by ID.
+    pub async fn cancel_order(&self, order_id: &str) -> Result<CancelResponse> {
+        let path = format!("/v1/order/{}/cancel", order_id);
+        let url = format!("{}{}", BASE_URL, path);
+        let body = "{}";
+        let headers = self.auth_headers("POST", &path)?;
+
+        let resp = self
+            .http
+            .post(&url)
+            .headers(headers)
+            .body(body)
+            .send()
+            .await?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            return Err(anyhow!(
+                "cancel_order({}) failed {}: {}",
+                order_id,
+                status,
+                text
+            ));
+        }
+        Ok(resp.json().await?)
+    }
+
+    /// POST /v1/orders/open/cancel — cancel all open orders.
+    pub async fn cancel_all_orders(&self) -> Result<CancelResponse> {
+        let path = "/v1/orders/open/cancel";
+        let url = format!("{}{}", BASE_URL, path);
+        let body = "{}";
+        let headers = self.auth_headers("POST", path)?;
+
+        let resp = self
+            .http
+            .post(&url)
+            .headers(headers)
+            .body(body)
+            .send()
+            .await?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            return Err(anyhow!("cancel_all_orders failed {}: {}", status, text));
+        }
+        Ok(resp.json().await?)
+    }
+
+    /// GET /v1/orders/open — list all open orders.
+    pub async fn get_open_orders(&self) -> Result<Vec<UsOrder>> {
+        let path = "/v1/orders/open";
+        let url = format!("{}{}", BASE_URL, path);
+        let headers = self.auth_headers("GET", path)?;
+
+        let resp = self.http.get(&url).headers(headers).send().await?;
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(anyhow!("get_open_orders failed {}: {}", status, body));
+        }
+        Ok(resp.json().await?)
+    }
+}
+
+// ============================================================================
+// REQUEST / RESPONSE TYPES
+// ============================================================================
+
+/// Limit order request body for POST /v1/orders.
+///
+/// price.value is ALWAYS the YES-side price (even for NO/SHORT intents).
+/// To buy NO at X¢, set price = (1.00 - X¢/100) and intent = ORDER_INTENT_BUY_SHORT.
+#[derive(Debug, Clone, Serialize)]
+pub struct LimitOrderRequest {
+    #[serde(rename = "marketSlug")]
+    pub market_slug: String,
+    #[serde(rename = "type")]
+    pub order_type: String,
+    pub price: OrderPrice,
+    pub quantity: u64,
+    /// e.g. "TIME_IN_FORCE_GOOD_TILL_CANCEL"
+    pub tif: String,
+    /// e.g. "ORDER_INTENT_BUY_LONG"
+    pub intent: String,
+    #[serde(rename = "manualOrderIndicator")]
+    pub manual_order_indicator: String,
+}
+
+impl LimitOrderRequest {
+    /// Buy YES shares at `yes_price_usd` (e.g. 0.55 for 55¢).
+    pub fn buy_yes(market_slug: &str, yes_price_usd: f64, quantity: u64) -> Self {
+        Self {
+            market_slug: market_slug.to_string(),
+            order_type: "ORDER_TYPE_LIMIT".to_string(),
+            price: OrderPrice::usd(yes_price_usd),
+            quantity,
+            tif: "TIME_IN_FORCE_GOOD_TILL_CANCEL".to_string(),
+            intent: "ORDER_INTENT_BUY_LONG".to_string(),
+            manual_order_indicator: "MANUAL_ORDER_INDICATOR_AUTOMATIC".to_string(),
+        }
+    }
+
+    /// Buy NO shares; `no_price_usd` is the NO price (e.g. 0.45 for 45¢).
+    /// The API always wants the YES-side price, so we set price = 1.00 - no_price.
+    pub fn buy_no(market_slug: &str, no_price_usd: f64, quantity: u64) -> Self {
+        let yes_price = (1.0_f64 - no_price_usd).clamp(0.01, 0.99);
+        Self {
+            market_slug: market_slug.to_string(),
+            order_type: "ORDER_TYPE_LIMIT".to_string(),
+            price: OrderPrice::usd(yes_price),
+            quantity,
+            tif: "TIME_IN_FORCE_GOOD_TILL_CANCEL".to_string(),
+            intent: "ORDER_INTENT_BUY_SHORT".to_string(),
+            manual_order_indicator: "MANUAL_ORDER_INDICATOR_AUTOMATIC".to_string(),
+        }
+    }
+
+    /// Sell YES shares at `yes_price_usd`.
+    pub fn sell_yes(market_slug: &str, yes_price_usd: f64, quantity: u64) -> Self {
+        Self {
+            market_slug: market_slug.to_string(),
+            order_type: "ORDER_TYPE_LIMIT".to_string(),
+            price: OrderPrice::usd(yes_price_usd),
+            quantity,
+            tif: "TIME_IN_FORCE_GOOD_TILL_CANCEL".to_string(),
+            intent: "ORDER_INTENT_SELL_LONG".to_string(),
+            manual_order_indicator: "MANUAL_ORDER_INDICATOR_AUTOMATIC".to_string(),
+        }
+    }
+
+    /// Sell NO shares; `no_price_usd` is the NO price — converted to YES-side for the API.
+    pub fn sell_no(market_slug: &str, no_price_usd: f64, quantity: u64) -> Self {
+        let yes_price = (1.0_f64 - no_price_usd).clamp(0.01, 0.99);
+        Self {
+            market_slug: market_slug.to_string(),
+            order_type: "ORDER_TYPE_LIMIT".to_string(),
+            price: OrderPrice::usd(yes_price),
+            quantity,
+            tif: "TIME_IN_FORCE_GOOD_TILL_CANCEL".to_string(),
+            intent: "ORDER_INTENT_SELL_SHORT".to_string(),
+            manual_order_indicator: "MANUAL_ORDER_INDICATOR_AUTOMATIC".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrderPrice {
+    pub value: String,
+    pub currency: String,
+}
+
+impl OrderPrice {
+    pub fn usd(price: f64) -> Self {
+        Self {
+            value: format!("{:.2}", price),
+            currency: "USD".to_string(),
+        }
+    }
+}
+
+/// Response from POST /v1/orders.
+#[derive(Debug, Clone, Deserialize)]
+pub struct OrderResponse {
+    pub id: Option<String>,
+    pub status: Option<String>,
+    #[serde(flatten)]
+    pub extra: serde_json::Value,
+}
+
+/// Response from cancel endpoints.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CancelResponse {
+    #[serde(flatten)]
+    pub data: serde_json::Value,
+}
+
+/// Response from GET /v1/account/balances.
+#[derive(Debug, Clone, Deserialize)]
+pub struct BalancesResponse {
+    #[serde(flatten)]
+    pub data: serde_json::Value,
+}
+
+/// An order returned by GET /v1/orders/open.
+#[derive(Debug, Clone, Deserialize)]
+pub struct UsOrder {
+    pub id: Option<String>,
+    pub status: Option<String>,
+    #[serde(rename = "marketSlug")]
+    pub market_slug: Option<String>,
+    pub price: Option<OrderPrice>,
+    pub quantity: Option<serde_json::Value>,
+    pub intent: Option<String>,
+    #[serde(flatten)]
+    pub extra: serde_json::Value,
+}

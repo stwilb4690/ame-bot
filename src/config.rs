@@ -104,12 +104,37 @@ pub fn app_mode() -> AppMode {
     })
 }
 
+// === Order Type ===
+
+/// Kalshi order type: IOC (taker) or resting limit (maker).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KalshiOrderType {
+    /// Immediate-or-cancel (taker). Default.
+    Ioc,
+    /// Resting limit order (maker).
+    Limit,
+}
+
+/// Get the configured Kalshi order type.
+///
+/// Reads KALSHI_ORDER_TYPE env var. Default: "ioc".
+/// Set to "limit" to place resting limit orders instead of IOC.
+pub fn kalshi_order_type() -> KalshiOrderType {
+    static OT: OnceLock<KalshiOrderType> = OnceLock::new();
+    *OT.get_or_init(|| {
+        match std::env::var("KALSHI_ORDER_TYPE").as_deref() {
+            Ok("limit") => KalshiOrderType::Limit,
+            _ => KalshiOrderType::Ioc,
+        }
+    })
+}
+
 // === Fee Rate ===
 
-/// Get the Kalshi fee rate (0.0–1.0).
+/// Get the Kalshi taker fee rate (0.0–1.0).
 ///
 /// Reads KALSHI_FEE_RATE env var. Default: 0.07 (7%).
-/// Set to 0.0 for zero-fee mode (Kalshi may offer 0% in some configurations).
+/// Used when KALSHI_ORDER_TYPE=ioc (default).
 pub fn kalshi_fee_rate() -> f64 {
     static RATE: OnceLock<f64> = OnceLock::new();
     *RATE.get_or_init(|| {
@@ -118,6 +143,21 @@ pub fn kalshi_fee_rate() -> f64 {
             .and_then(|s| s.parse::<f64>().ok())
             .map(|r| r.clamp(0.0, 1.0))
             .unwrap_or(0.07)
+    })
+}
+
+/// Get the Kalshi maker fee rate (0.0–1.0).
+///
+/// Reads KALSHI_MAKER_FEE_RATE env var. Default: 0.0175 (1.75%).
+/// Used when KALSHI_ORDER_TYPE=limit.
+pub fn kalshi_maker_fee_rate() -> f64 {
+    static RATE: OnceLock<f64> = OnceLock::new();
+    *RATE.get_or_init(|| {
+        std::env::var("KALSHI_MAKER_FEE_RATE")
+            .ok()
+            .and_then(|s| s.parse::<f64>().ok())
+            .map(|r| r.clamp(0.0, 1.0))
+            .unwrap_or(0.0175)
     })
 }
 
@@ -152,6 +192,14 @@ pub const WS_RECONNECT_DELAY_SECS: u64 = 5;
 
 /// Which leagues to monitor (empty slice = all).
 pub const ENABLED_LEAGUES: &[&str] = &[];
+
+/// How often to log the heartbeat status summary (default: once per hour).
+pub fn heartbeat_interval_secs() -> u64 {
+    std::env::var("HEARTBEAT_INTERVAL_SECS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(3600)
+}
 
 /// State write interval in seconds.
 pub fn state_write_interval_secs() -> u64 {

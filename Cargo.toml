@@ -43,6 +43,14 @@ wide = "0.7"
 criterion = { version = "0.5", features = ["html_reports"] }
 hex = "0.4"
 
+[[bin]]
+name = "signal-trader"
+path = "src/bin/signal_trader.rs"
+
+[[bin]]
+name = "analyze-signals"
+path = "src/bin/analyze_signals.rs"
+
 [[test]]
 name = "integration_tests"
 path = "tests/integration_tests.rs"

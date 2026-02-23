@@ -10,16 +10,20 @@
 //   state/config_overrides.json — Henrik writes this; bot reads and applies it
 
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use crate::circuit_breaker::CircuitBreaker;
-use crate::config::{app_mode, wide_spread_threshold, AppMode};
-use crate::types::GlobalState;
+use crate::config::{app_mode, arb_threshold, wide_spread_threshold, AppMode};
+use crate::kalshi::KalshiApiClient;
+use crate::polymarket_us::PolymarketUsClient;
+use crate::position_tracker::SharedPositionTracker;
+use crate::types::{GlobalState, fxhash_str};
 
 // === Config Overrides (Henrik writes, bot reads) ===
 
@@ -74,8 +78,31 @@ struct StatusJson<'a> {
     markets_with_both: usize,
     circuit_breaker: &'a str,
     daily_pnl_cents: i64,
+    arb_threshold_cents: u16,
+    poly_us_balance_cents: Option<i64>,
+    kalshi_balance_cents: Option<i64>,
     version: &'static str,
     app_env: String,
+}
+
+// === Position JSON ===
+
+#[derive(Serialize)]
+struct PositionJson {
+    market_id: String,
+    pair_id: String,
+    description: String,
+    arb_type: &'static str,
+    entry_cost_cents: i64,
+    contracts: f64,
+    opened_at: String,
+}
+
+#[derive(Serialize)]
+struct PositionsJson {
+    updated: String,
+    open_count: usize,
+    positions: Vec<PositionJson>,
 }
 
 // === Opportunity JSON ===
@@ -112,16 +139,33 @@ struct OpportunitiesJson {
 
 // === State Writer ===
 
+/// Sentinel value meaning "balance not yet fetched".
+const BALANCE_UNKNOWN: i64 = i64::MIN;
+
+/// How often to poll wallet balances (seconds).
+const BALANCE_POLL_SECS: u64 = 60;
+
 /// Writes Henrik state files and reads config overrides.
 pub struct StateWriter {
     state: Arc<GlobalState>,
     overrides: Arc<RwLock<ConfigOverrides>>,
     circuit_breaker: Arc<CircuitBreaker>,
+    poly_us: Option<Arc<PolymarketUsClient>>,
+    kalshi: Option<Arc<KalshiApiClient>>,
+    position_tracker: Option<SharedPositionTracker>,
     start_time: Instant,
+    /// ARB_THRESHOLD converted to cents (e.g. 0.97 → 97), captured once at startup.
+    arb_threshold_cents: u16,
     /// Whether the Kalshi WebSocket is believed to be connected.
     pub kalshi_connected: Arc<std::sync::atomic::AtomicBool>,
     /// Whether the Poly WebSocket is believed to be connected.
     pub poly_connected: Arc<std::sync::atomic::AtomicBool>,
+    /// Cached Polymarket US cash balance in cents (BALANCE_UNKNOWN if not yet fetched).
+    poly_us_balance_cents: AtomicI64,
+    /// Cached Kalshi cash balance in cents (BALANCE_UNKNOWN if not yet fetched).
+    kalshi_balance_cents: AtomicI64,
+    /// Unix-second timestamp of last successful balance fetch.
+    last_balance_ts: AtomicU64,
 }
 
 impl StateWriter {
@@ -129,15 +173,43 @@ impl StateWriter {
         state: Arc<GlobalState>,
         overrides: Arc<RwLock<ConfigOverrides>>,
         circuit_breaker: Arc<CircuitBreaker>,
+        poly_us: Option<Arc<PolymarketUsClient>>,
+        kalshi: Option<Arc<KalshiApiClient>>,
+        position_tracker: Option<SharedPositionTracker>,
     ) -> Self {
+        let arb_threshold_cents = (arb_threshold() * 100.0).round() as u16;
         Self {
             state,
             overrides,
             circuit_breaker,
+            poly_us,
+            kalshi,
+            position_tracker,
             start_time: Instant::now(),
+            arb_threshold_cents,
             kalshi_connected: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             poly_connected: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            poly_us_balance_cents: AtomicI64::new(BALANCE_UNKNOWN),
+            kalshi_balance_cents: AtomicI64::new(BALANCE_UNKNOWN),
+            last_balance_ts: AtomicU64::new(0),
         }
+    }
+
+    /// Kalshi balance in cents, or None if not yet fetched.
+    pub fn kalshi_balance_cents_opt(&self) -> Option<i64> {
+        let v = self.kalshi_balance_cents.load(Ordering::Relaxed);
+        if v == BALANCE_UNKNOWN { None } else { Some(v) }
+    }
+
+    /// Polymarket US balance in cents, or None if not yet fetched.
+    pub fn poly_balance_cents_opt(&self) -> Option<i64> {
+        let v = self.poly_us_balance_cents.load(Ordering::Relaxed);
+        if v == BALANCE_UNKNOWN { None } else { Some(v) }
+    }
+
+    /// Seconds elapsed since this StateWriter was created (process uptime proxy).
+    pub fn uptime_secs(&self) -> u64 {
+        self.start_time.elapsed().as_secs()
     }
 }
 
@@ -169,7 +241,46 @@ pub async fn run_state_writer(
     }
 }
 
+/// Poll both wallet balances and cache the results in the writer's atomics.
+async fn refresh_balances(writer: &StateWriter) {
+    if let Some(ref poly_us) = writer.poly_us {
+        match poly_us.get_cash_balance_cents().await {
+            Ok(cents) => {
+                writer.poly_us_balance_cents.store(cents, Ordering::Relaxed);
+                info!("[STATE] Polymarket US balance: ${:.2}", cents as f64 / 100.0);
+            }
+            Err(e) => warn!("[STATE] Failed to fetch Polymarket US balance: {}", e),
+        }
+    }
+
+    if let Some(ref kalshi) = writer.kalshi {
+        match kalshi.get_balance().await {
+            Ok(resp) => {
+                writer.kalshi_balance_cents.store(resp.balance, Ordering::Relaxed);
+                info!("[STATE] Kalshi balance: ${:.2}", resp.balance as f64 / 100.0);
+            }
+            Err(e) => warn!("[STATE] Failed to fetch Kalshi balance: {}", e),
+        }
+    }
+
+    let now_ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    writer.last_balance_ts.store(now_ts, Ordering::Relaxed);
+}
+
 async fn write_all(writer: &StateWriter) {
+    // Poll balances on startup (last_ts == 0) and every BALANCE_POLL_SECS thereafter.
+    let now_ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let last_ts = writer.last_balance_ts.load(Ordering::Relaxed);
+    if now_ts.saturating_sub(last_ts) >= BALANCE_POLL_SECS {
+        refresh_balances(writer).await;
+    }
+
     let now = Utc::now().to_rfc3339();
     let uptime = writer.start_time.elapsed().as_secs();
 
@@ -251,6 +362,9 @@ async fn write_all(writer: &StateWriter) {
         },
     };
 
+    let poly_bal = writer.poly_us_balance_cents.load(Ordering::Relaxed);
+    let kalshi_bal = writer.kalshi_balance_cents.load(Ordering::Relaxed);
+
     let status = StatusJson {
         mode: &mode_str,
         status: "running",
@@ -264,6 +378,9 @@ async fn write_all(writer: &StateWriter) {
         markets_with_both: with_both,
         circuit_breaker: cb_str,
         daily_pnl_cents: 0, // TODO: wire up position tracker
+        arb_threshold_cents: writer.arb_threshold_cents,
+        poly_us_balance_cents: if poly_bal == BALANCE_UNKNOWN { None } else { Some(poly_bal) },
+        kalshi_balance_cents: if kalshi_bal == BALANCE_UNKNOWN { None } else { Some(kalshi_bal) },
         version: env!("CARGO_PKG_VERSION"),
         app_env: std::env::var("APP_ENV").unwrap_or_else(|_| "demo".into()),
     };
@@ -271,11 +388,13 @@ async fn write_all(writer: &StateWriter) {
     write_json("state/status.json", &status).await;
 
     let opps_json = OpportunitiesJson {
-        updated: now,
+        updated: now.clone(),
         opportunities: arb_opps,
         wide_spreads,
     };
     write_json("state/opportunities.json", &opps_json).await;
+
+    write_positions(writer, &now).await;
 
     // === Read config_overrides.json (Henrik writes this) ===
     if let Ok(data) = tokio::fs::read_to_string("state/config_overrides.json").await {
@@ -291,6 +410,56 @@ async fn write_all(writer: &StateWriter) {
             }
         }
     }
+}
+
+/// Write open positions to state/positions.json.
+async fn write_positions(writer: &StateWriter, now: &str) {
+    let Some(ref tracker_lock) = writer.position_tracker else { return; };
+    let tracker = tracker_lock.read().await;
+
+    let positions: Vec<PositionJson> = tracker
+        .open_positions()
+        .into_iter()
+        .map(|pos| {
+            let hash = fxhash_str(&pos.market_id);
+            let pair_id = writer
+                .state
+                .kalshi_to_id
+                .get(&hash)
+                .and_then(|&id| writer.state.markets.get(id as usize))
+                .and_then(|m| m.pair.as_ref())
+                .map(|p| p.pair_id.to_string())
+                .unwrap_or_else(|| pos.market_id.clone());
+
+            let arb_type = if pos.kalshi_yes.contracts > 0.0 && pos.poly_no.contracts > 0.0 {
+                "KalshiYesPolyNo"
+            } else if pos.poly_yes.contracts > 0.0 && pos.kalshi_no.contracts > 0.0 {
+                "PolyYesKalshiNo"
+            } else if pos.kalshi_yes.contracts > 0.0 && pos.kalshi_no.contracts > 0.0 {
+                "KalshiSamePlatform"
+            } else {
+                "Unknown"
+            };
+
+            PositionJson {
+                market_id: pos.market_id.clone(),
+                pair_id,
+                description: pos.description.clone(),
+                arb_type,
+                entry_cost_cents: (pos.total_cost() * 100.0).round() as i64,
+                contracts: pos.matched_contracts(),
+                opened_at: pos.opened_at.clone(),
+            }
+        })
+        .collect();
+
+    let open_count = positions.len();
+    let json = PositionsJson {
+        updated: now.to_string(),
+        open_count,
+        positions,
+    };
+    write_json("state/positions.json", &json).await;
 }
 
 /// Append an entry to state/trade_log.md.

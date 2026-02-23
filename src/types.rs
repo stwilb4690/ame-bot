@@ -8,6 +8,29 @@ use rustc_hash::FxHashMap;
 
 // === Market Types ===
 
+/// Broad category for a market pair — drives threshold selection and live-mode logic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MarketCategory {
+    Sports,
+    Crypto,
+    Economic,
+}
+
+impl Default for MarketCategory {
+    fn default() -> Self { MarketCategory::Sports }
+}
+
+impl std::fmt::Display for MarketCategory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MarketCategory::Sports   => write!(f, "sports"),
+            MarketCategory::Crypto   => write!(f, "crypto"),
+            MarketCategory::Economic => write!(f, "economic"),
+        }
+    }
+}
+
 /// Market type for a matched pair
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MarketType {
@@ -42,6 +65,14 @@ pub struct MarketPair {
     pub poly_no_token: Arc<str>,
     pub line_value: Option<f64>,
     pub team_suffix: Option<Arc<str>>,
+    /// Broad market category (sports / crypto / economic).
+    /// Uses default = Sports so old cached pairs deserialise without error.
+    #[serde(default)]
+    pub category: MarketCategory,
+    /// Unix timestamp of market expiry (set for short-duration markets, None otherwise).
+    /// Allows the signal trader to implement time-based exits before expiry.
+    #[serde(default)]
+    pub expiry_ts: Option<i64>,
 }
 
 /// Price in cents (1-99 for 0.01-0.99), 0 = no price available
@@ -166,8 +197,8 @@ impl AtomicMarketState {
 
         if total < 100 {
             // Same-platform arb: buying YES and NO costs < $1.00
-            let yes_fee = kalshi_fee_cents(k_yes) as i16;
-            let no_fee = kalshi_fee_cents(k_no) as i16;
+            let yes_fee = kalshi_effective_fee_cents(k_yes) as i16;
+            let no_fee = kalshi_effective_fee_cents(k_no) as i16;
             let profit_cents = 100 - (k_yes as i16 + yes_fee + k_no as i16 + no_fee);
             opps.same_platform = Some(SamePlatformArb {
                 yes_ask: k_yes,
@@ -199,8 +230,8 @@ impl AtomicMarketState {
             return 0;
         }
 
-        let k_yes_fee = kalshi_fee_cents(k_yes);
-        let k_no_fee = kalshi_fee_cents(k_no);
+        let k_yes_fee = kalshi_effective_fee_cents(k_yes);
+        let k_no_fee = kalshi_effective_fee_cents(k_no);
 
         // Only check cross-platform arbs (no same-platform poly-poly or kalshi-kalshi)
         let cost1 = (p_yes + k_no + k_no_fee) as i16;  // Poly YES + Kalshi NO
@@ -234,13 +265,19 @@ fn build_fee_table(rate: f64) -> [u16; 101] {
     table
 }
 
-/// Runtime fee table, initialised once from KALSHI_FEE_RATE env var (default 0.07).
+/// Runtime taker fee table, initialised once from KALSHI_FEE_RATE env var (default 0.07).
 fn fee_table() -> &'static [u16; 101] {
     static TABLE: OnceLock<[u16; 101]> = OnceLock::new();
     TABLE.get_or_init(|| build_fee_table(crate::config::kalshi_fee_rate()))
 }
 
-/// Calculate Kalshi fee in cents for a single contract.
+/// Runtime maker fee table, initialised once from KALSHI_MAKER_FEE_RATE env var (default 0.0175).
+fn maker_fee_table() -> &'static [u16; 101] {
+    static TABLE: OnceLock<[u16; 101]> = OnceLock::new();
+    TABLE.get_or_init(|| build_fee_table(crate::config::kalshi_maker_fee_rate()))
+}
+
+/// Calculate Kalshi taker fee in cents for a single contract.
 /// For prices 10-90 cents, fee is typically 1-2 cents (at the default 7% rate).
 #[inline(always)]
 pub fn kalshi_fee_cents(price_cents: PriceCents) -> PriceCents {
@@ -248,6 +285,25 @@ pub fn kalshi_fee_cents(price_cents: PriceCents) -> PriceCents {
         return 0;
     }
     fee_table()[price_cents as usize]
+}
+
+/// Calculate Kalshi maker fee in cents for a single contract (used for resting limit orders).
+#[inline(always)]
+pub fn kalshi_maker_fee_cents(price_cents: PriceCents) -> PriceCents {
+    if price_cents > 100 {
+        return 0;
+    }
+    maker_fee_table()[price_cents as usize]
+}
+
+/// Calculate the effective Kalshi fee based on the configured order type.
+/// Uses the maker fee table when KALSHI_ORDER_TYPE=limit, taker otherwise.
+#[inline(always)]
+pub fn kalshi_effective_fee_cents(price_cents: PriceCents) -> PriceCents {
+    match crate::config::kalshi_order_type() {
+        crate::config::KalshiOrderType::Limit => kalshi_maker_fee_cents(price_cents),
+        crate::config::KalshiOrderType::Ioc => kalshi_fee_cents(price_cents),
+    }
 }
 
 // === Kalshi Same-Platform Opportunity Types ===
@@ -353,8 +409,8 @@ impl FastExecutionRequest {
     pub fn estimated_fee_cents(&self) -> PriceCents {
         match self.arb_type {
             // Cross-platform: fee on the Kalshi side only
-            ArbType::PolyYesKalshiNo => kalshi_fee_cents(self.no_price),
-            ArbType::KalshiYesPolyNo => kalshi_fee_cents(self.yes_price),
+            ArbType::PolyYesKalshiNo => kalshi_effective_fee_cents(self.no_price),
+            ArbType::KalshiYesPolyNo => kalshi_effective_fee_cents(self.yes_price),
         }
     }
 }
@@ -379,6 +435,10 @@ pub struct GlobalState {
     /// Description map for Kalshi-only markets (no Polymarket pair).
     /// Maps Kalshi ticker hash → human-readable description.
     pub kalshi_descriptions: FxHashMap<u64, Arc<str>>,
+
+    /// Per-market timestamp of last Polymarket WS price update (Unix seconds).
+    /// Zero = never updated. Used by the signal trader to skip stale Poly prices.
+    pub poly_update_ts: Vec<AtomicU64>,
 }
 
 impl GlobalState {
@@ -395,6 +455,7 @@ impl GlobalState {
             poly_yes_to_id: FxHashMap::default(),
             poly_no_to_id: FxHashMap::default(),
             kalshi_descriptions: FxHashMap::default(),
+            poly_update_ts: (0..MAX_MARKETS).map(|_| AtomicU64::new(0)).collect(),
         }
     }
 
@@ -877,6 +938,8 @@ mod tests {
             poly_no_token: format!("no_token_{}", id).into(),
             line_value: None,
             team_suffix: None,
+            category: MarketCategory::Sports,
+            expiry_ts: None,
         }
     }
 
@@ -1098,6 +1161,8 @@ mod tests {
             poly_no_token: "no_token_cfc".into(),
             line_value: None,
             team_suffix: Some("CFC".into()),
+            category: MarketCategory::Sports,
+            expiry_ts: None,
         };
 
         let poly_yes_token = pair.poly_yes_token.clone();
@@ -1226,6 +1291,12 @@ pub struct KalshiMarket {
     pub floor_strike: Option<f64>,
     pub volume: Option<i64>,
     pub liquidity: Option<i64>,
+    #[serde(default)]
+    pub expiration_ts: Option<i64>,
+    /// RFC-3339 close/resolution time returned by the Kalshi REST API
+    /// e.g. "2026-02-23T01:15:00Z" — used for short-duration slug construction.
+    #[serde(default)]
+    pub close_time: Option<String>,
 }
 
 // === Polymarket/Gamma API Types ===

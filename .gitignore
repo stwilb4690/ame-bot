@@ -10,3 +10,6 @@ positions.json
 keys/
 .env
 keys/
+nohup.out
+state/
+*.jsonl

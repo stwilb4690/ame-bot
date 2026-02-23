@@ -73,6 +73,28 @@ impl<'a> KalshiOrderRequest<'a> {
         }
     }
 
+    /// Create a resting limit buy order (no time_in_force — sits on the book as maker)
+    pub fn resting_limit_buy(ticker: Cow<'a, str>, side: &'static str, price_cents: i64, count: i64, client_order_id: Cow<'a, str>) -> Self {
+        let (yes_price, no_price) = if side == "yes" {
+            (Some(price_cents), None)
+        } else {
+            (None, Some(price_cents))
+        };
+
+        Self {
+            ticker,
+            action: "buy",
+            side,
+            order_type: "limit",
+            count,
+            yes_price,
+            no_price,
+            client_order_id,
+            expiration_ts: None,
+            time_in_force: None,
+        }
+    }
+
     /// Create an IOC (immediate-or-cancel) sell order
     pub fn ioc_sell(ticker: Cow<'a, str>, side: &'static str, price_cents: i64, count: i64, client_order_id: Cow<'a, str>) -> Self {
         let (yes_price, no_price) = if side == "yes" {
@@ -317,6 +339,11 @@ impl KalshiApiClient {
         let path = "/portfolio/orders";
         self.post(path, order).await
     }
+
+    /// GET /portfolio/balance — retrieve available cash balance in cents.
+    pub async fn get_balance(&self) -> Result<KalshiBalanceResponse> {
+        self.get("/portfolio/balance").await
+    }
     
     /// Create an IOC buy order (convenience method)
     pub async fn buy_ioc(
@@ -346,6 +373,88 @@ impl KalshiApiClient {
         Ok(resp)
     }
 
+    /// Place a resting limit buy order (maker)
+    pub async fn buy_resting_limit(
+        &self,
+        ticker: &str,
+        side: &str,
+        price_cents: i64,
+        count: i64,
+    ) -> Result<KalshiOrderResponse> {
+        debug_assert!(!ticker.is_empty(), "ticker must not be empty");
+        debug_assert!(price_cents >= 1 && price_cents <= 99, "price must be 1-99");
+        debug_assert!(count >= 1, "count must be >= 1");
+
+        let side_static: &'static str = if side == "yes" { "yes" } else { "no" };
+        let order_id = Self::next_order_id();
+        let order = KalshiOrderRequest::resting_limit_buy(
+            Cow::Borrowed(ticker),
+            side_static,
+            price_cents,
+            count,
+            Cow::Borrowed(&order_id),
+        );
+        debug!("[KALSHI] LIMIT {} {} @{}¢ x{}", side, ticker, price_cents, count);
+
+        let resp = self.create_order(&order).await?;
+        debug!("[KALSHI] {} filled={}", resp.order.status, resp.order.filled_count());
+        Ok(resp)
+    }
+
+    /// Place a buy order using the configured order type (IOC or resting limit).
+    pub async fn place_buy_order(
+        &self,
+        ticker: &str,
+        side: &str,
+        price_cents: i64,
+        count: i64,
+    ) -> Result<KalshiOrderResponse> {
+        match crate::config::kalshi_order_type() {
+            crate::config::KalshiOrderType::Limit => {
+                self.buy_resting_limit(ticker, side, price_cents, count).await
+            }
+            crate::config::KalshiOrderType::Ioc => {
+                self.buy_ioc(ticker, side, price_cents, count).await
+            }
+        }
+    }
+
+    /// GET /portfolio/orders/{order_id} — fetch a single order by ID.
+    pub async fn get_order(&self, order_id: &str) -> Result<KalshiOrderResponse> {
+        self.get(&format!("/portfolio/orders/{}", order_id)).await
+    }
+
+    /// DELETE /portfolio/orders/{order_id} — cancel an open order.
+    /// Returns the final state of the order (including any partial fills).
+    pub async fn cancel_order(&self, order_id: &str) -> Result<KalshiOrderResponse> {
+        let path = format!("/portfolio/orders/{}", order_id);
+        let url = format!("{}{}", kalshi_api_base(), path);
+        let timestamp_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        let full_path = format!("/trade-api/v2{}", path);
+        let msg = format!("{}DELETE{}", timestamp_ms, full_path);
+        let signature = self.config.sign(&msg)?;
+
+        let resp = self.http
+            .delete(&url)
+            .header("KALSHI-ACCESS-KEY", &self.config.api_key_id)
+            .header("KALSHI-ACCESS-SIGNATURE", &signature)
+            .header("KALSHI-ACCESS-TIMESTAMP", timestamp_ms.to_string())
+            .timeout(ORDER_TIMEOUT)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            anyhow::bail!("Kalshi cancel order error {}: {}", status, body);
+        }
+
+        Ok(resp.json().await?)
+    }
+
     pub async fn sell_ioc(
         &self,
         ticker: &str,
@@ -372,6 +481,14 @@ impl KalshiApiClient {
         debug!("[KALSHI] {} filled={}", resp.order.status, resp.order.filled_count());
         Ok(resp)
     }
+}
+
+// === Balance Response ===
+
+#[derive(Debug, Deserialize)]
+pub struct KalshiBalanceResponse {
+    /// Available cash balance in cents.
+    pub balance: i64,
 }
 
 // === WebSocket Message Types ===

@@ -4,7 +4,7 @@
 // Auth scheme (per POLYMARKET_US_API_REFERENCE.md):
 //   X-PM-Access-Key:  <api-key UUID>
 //   X-PM-Timestamp:   <unix-ms>
-//   X-PM-Signature:   base64( ed25519_sign(seed, timestamp_ms + METHOD + path [+ body]) )
+//   X-PM-Signature:   base64( ed25519_sign(seed, timestamp_ms + METHOD + path) )
 //
 // Secret is a base64-encoded 64-byte Ed25519 keypair; first 32 bytes are the seed.
 
@@ -86,16 +86,12 @@ impl PolymarketUsClient {
     }
 
     /// Build the three X-PM-* auth headers for a request.
-    fn auth_headers(&self, method: &str, path: &str, body: Option<&str>) -> Result<HeaderMap> {
+    fn auth_headers(&self, method: &str, path: &str) -> Result<HeaderMap> {
         let ts = Self::timestamp_ms();
         let ts_str = ts.to_string();
 
-        // Signature covers: timestamp_ms + METHOD + path [ + body ]
-        let msg = if let Some(b) = body {
-            format!("{}{}{}{}", ts_str, method, path, b)
-        } else {
-            format!("{}{}{}", ts_str, method, path)
-        };
+        // Signature covers: timestamp_ms + METHOD + path
+        let msg = format!("{}{}{}", ts_str, method, path);
 
         let sig = self.signing_key.sign(msg.as_bytes());
         let sig_b64 = B64.encode(sig.to_bytes());
@@ -125,7 +121,7 @@ impl PolymarketUsClient {
     pub async fn get_balances(&self) -> Result<BalancesResponse> {
         let path = "/v1/account/balances";
         let url = format!("{}{}", BASE_URL, path);
-        let headers = self.auth_headers("GET", path, None)?;
+        let headers = self.auth_headers("GET", path)?;
 
         let resp = self.http.get(&url).headers(headers).send().await?;
         if !resp.status().is_success() {
@@ -136,12 +132,35 @@ impl PolymarketUsClient {
         Ok(resp.json().await?)
     }
 
+    /// Returns the available cash balance in cents.
+    ///
+    /// Parses `response["balances"][0]["currentBalance"]` (integer dollars) and
+    /// converts to cents by multiplying by 100.
+    pub async fn get_cash_balance_cents(&self) -> Result<i64> {
+        let resp = self.get_balances().await?;
+        let data = &resp.data;
+
+        let dollars = data
+            .get("balances")
+            .and_then(|v| v.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|entry| entry.get("currentBalance"))
+            .and_then(|v| {
+                v.as_i64()
+                    .or_else(|| v.as_f64().map(|f| f.round() as i64))
+                    .or_else(|| v.as_str().and_then(|s| s.parse::<f64>().ok()).map(|f| f.round() as i64))
+            })
+            .ok_or_else(|| anyhow!("Could not parse balances[0].currentBalance from response: {}", data))?;
+
+        Ok(dollars * 100)
+    }
+
     /// POST /v1/orders — place a limit order.
     pub async fn place_limit_order(&self, req: &LimitOrderRequest) -> Result<OrderResponse> {
         let path = "/v1/orders";
         let url = format!("{}{}", BASE_URL, path);
         let body = serde_json::to_string(req)?;
-        let headers = self.auth_headers("POST", path, Some(&body))?;
+        let headers = self.auth_headers("POST", path)?;
 
         let resp = self
             .http
@@ -163,7 +182,7 @@ impl PolymarketUsClient {
         let path = format!("/v1/order/{}/cancel", order_id);
         let url = format!("{}{}", BASE_URL, path);
         let body = "{}";
-        let headers = self.auth_headers("POST", &path, Some(body))?;
+        let headers = self.auth_headers("POST", &path)?;
 
         let resp = self
             .http
@@ -190,7 +209,7 @@ impl PolymarketUsClient {
         let path = "/v1/orders/open/cancel";
         let url = format!("{}{}", BASE_URL, path);
         let body = "{}";
-        let headers = self.auth_headers("POST", path, Some(body))?;
+        let headers = self.auth_headers("POST", path)?;
 
         let resp = self
             .http
@@ -211,7 +230,7 @@ impl PolymarketUsClient {
     pub async fn get_open_orders(&self) -> Result<Vec<UsOrder>> {
         let path = "/v1/orders/open";
         let url = format!("{}{}", BASE_URL, path);
-        let headers = self.auth_headers("GET", path, None)?;
+        let headers = self.auth_headers("GET", path)?;
 
         let resp = self.http.get(&url).headers(headers).send().await?;
         if !resp.status().is_success() {
@@ -221,6 +240,86 @@ impl PolymarketUsClient {
         }
         Ok(resp.json().await?)
     }
+
+    /// Raw authenticated GET — returns the response body as a String.
+    pub async fn get_raw(&self, path: &str) -> Result<String> {
+        let url = format!("{}{}", BASE_URL, path);
+        // Sign with path only (no query string)
+        let sign_path = path.split("?").next().unwrap_or(path);
+        let headers = self.auth_headers("GET", sign_path)?;
+        let resp = self.http.get(&url).headers(headers).send().await?;
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        if !status.is_success() {
+            return Err(anyhow!("GET {} failed {}: {}", path, status, body));
+        }
+        Ok(body)
+    }
+
+    /// GET /v1/market/slug/{slug} — look up a specific market by slug.
+    /// Returns `None` if the market does not exist (404) or is inactive.
+    pub async fn lookup_slug(&self, slug: &str) -> Result<Option<PolyUsMarket>> {
+        let path = format!("/v1/market/slug/{}", slug);
+        match self.get_raw(&path).await {
+            Ok(body) => {
+                // Try direct parse first, then look for wrapped {"data": ...} / {"market": ...}
+                if let Ok(market) = serde_json::from_str::<PolyUsMarket>(&body) {
+                    return Ok(Some(market));
+                }
+                let v: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
+                let market_val = v.get("data").or_else(|| v.get("market"));
+                Ok(market_val.and_then(|mv| serde_json::from_value(mv.clone()).ok()))
+            }
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("404") || msg.contains("not found") || msg.contains("Not Found") {
+                    Ok(None)
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
+
+    /// GET /v1/markets?active=true&closed=false&limit={n} — list active open markets.
+    ///
+    /// Applies a client-side `closed == false` filter on top of the server-side parameter
+    /// because the server-side `closed=false` query param is not always reliable.
+    pub async fn get_active_markets(&self, limit: usize) -> Result<Vec<PolyUsMarket>> {
+        let path = format!("/v1/markets?active=true&closed=false&limit={}", limit);
+        let body = self.get_raw(&path).await?;
+        let v: serde_json::Value = serde_json::from_str(&body)?;
+        let mut markets = parse_poly_us_market_list(&v);
+        // Server-side closed=false filter is not fully reliable — enforce client-side too
+        markets.retain(|m| m.closed != Some(true));
+        Ok(markets)
+    }
+
+    /// GET /v1/search?query={query} — search markets by keyword.
+    /// Spaces in the query are encoded as `+`.
+    pub async fn search_markets(&self, query: &str) -> Result<Vec<PolyUsMarket>> {
+        let encoded = query.replace(' ', "+");
+        let path = format!("/v1/search?query={}", encoded);
+        let body = self.get_raw(&path).await?;
+        let v: serde_json::Value = serde_json::from_str(&body)?;
+        Ok(parse_poly_us_market_list(&v))
+    }
+}
+
+/// Parse a Poly US market list from a JSON value.
+/// Handles: top-level array, `{"data": [...]}`, `{"markets": [...]}`, `{"results": [...]}`.
+fn parse_poly_us_market_list(v: &serde_json::Value) -> Vec<PolyUsMarket> {
+    let arr = v.as_array()
+        .or_else(|| v.get("data").and_then(|d| d.as_array()))
+        .or_else(|| v.get("markets").and_then(|d| d.as_array()))
+        .or_else(|| v.get("results").and_then(|d| d.as_array()));
+
+    arr.map(|a| {
+        a.iter()
+            .filter_map(|item| serde_json::from_value(item.clone()).ok())
+            .collect()
+    })
+    .unwrap_or_default()
 }
 
 // ============================================================================
@@ -352,6 +451,41 @@ pub struct UsOrder {
     pub price: Option<OrderPrice>,
     pub quantity: Option<serde_json::Value>,
     pub intent: Option<String>,
+    #[serde(flatten)]
+    pub extra: serde_json::Value,
+}
+
+/// A market returned by the Polymarket US market listing / search endpoints.
+///
+/// Fields are optional because different endpoints return different subsets.
+/// Slug format on Poly US: `aec-{sport}-{team1}-{team2}-{date}` e.g. `aec-nba-cle-okc-2026-02-22`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct PolyUsMarket {
+    /// The market's URL slug — used as `marketSlug` in order requests.
+    /// Format: `aec-{sport}-{team1abbrev}-{team2abbrev}-{YYYY-MM-DD}`
+    pub slug: String,
+    /// Human-readable question text (e.g. "Cleveland vs. Oklahoma City").
+    #[serde(default)]
+    pub question: Option<String>,
+    /// Whether the market is currently accepting orders.
+    #[serde(default)]
+    pub active: Option<bool>,
+    /// Whether the market is closed (resolved or canceled). Filter out closed==true.
+    #[serde(default)]
+    pub closed: Option<bool>,
+    /// Sport market type. Currently only "SPORTS_MARKET_TYPE_MONEYLINE" exists on Poly US.
+    #[serde(rename = "sportsMarketTypeV2", default)]
+    pub sports_market_type_v2: Option<String>,
+    /// Sportradar game ID — available on some markets, useful for precise cross-platform matching.
+    #[serde(rename = "sportradarGameId", default)]
+    pub sportradar_game_id: Option<String>,
+    /// ISO-8601 start date/time, if provided.
+    #[serde(rename = "startDate", default)]
+    pub start_date: Option<String>,
+    /// ISO-8601 end date/time, if provided.
+    #[serde(rename = "endDate", default)]
+    pub end_date: Option<String>,
+    /// Remaining fields captured for debugging / future use.
     #[serde(flatten)]
     pub extra: serde_json::Value,
 }

@@ -2,15 +2,18 @@
 // Execution Engine
 
 use anyhow::{Result, anyhow};
+use chrono::Utc;
+use serde::Serialize;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use tracing::{info, warn, error};
 
-use crate::kalshi::KalshiApiClient;
+use crate::kalshi::{KalshiApiClient, KalshiOrderResponse};
 use crate::polymarket_clob::SharedAsyncClient;
 use crate::polymarket_us::{PolymarketUsClient, LimitOrderRequest};
+use crate::telegram::TelegramClient;
 use crate::types::{
     ArbType, MarketPair,
     FastExecutionRequest, GlobalState,
@@ -48,13 +51,14 @@ impl Default for NanoClock {
 /// Execution engine
 pub struct ExecutionEngine {
     kalshi: Arc<KalshiApiClient>,
-    poly_async: Arc<SharedAsyncClient>,
+    poly_async: Option<Arc<SharedAsyncClient>>,
     /// Polymarket US Retail API client (Ed25519 auth). When present, used instead of
     /// the CLOB client for all Polymarket legs on cross-platform arb opportunities.
     poly_us: Option<Arc<PolymarketUsClient>>,
     state: Arc<GlobalState>,
     circuit_breaker: Arc<CircuitBreaker>,
     position_channel: PositionChannel,
+    telegram: Option<Arc<TelegramClient>>,
     in_flight: Arc<[AtomicU64; 8]>,
     clock: NanoClock,
     pub dry_run: bool,
@@ -64,11 +68,12 @@ pub struct ExecutionEngine {
 impl ExecutionEngine {
     pub fn new(
         kalshi: Arc<KalshiApiClient>,
-        poly_async: Arc<SharedAsyncClient>,
+        poly_async: Option<Arc<SharedAsyncClient>>,
         poly_us: Option<Arc<PolymarketUsClient>>,
         state: Arc<GlobalState>,
         circuit_breaker: Arc<CircuitBreaker>,
         position_channel: PositionChannel,
+        telegram: Option<Arc<TelegramClient>>,
         dry_run: bool,
     ) -> Self {
         let test_mode = std::env::var("TEST_ARB")
@@ -82,6 +87,7 @@ impl ExecutionEngine {
             state,
             circuit_breaker,
             position_channel,
+            telegram,
             in_flight: Arc::new(std::array::from_fn(|_| AtomicU64::new(0))),
             clock: NanoClock::new(),
             dry_run,
@@ -280,7 +286,51 @@ impl ExecutionEngine {
                         matched as f64, no_cost as f64 / 100.0 / no_filled.max(1) as f64,
                         0.0, &no_order_id,
                     ));
+
+                    // Telegram trade notification
+                    if let Some(ref tg) = self.telegram {
+                        let arb_label = match req.arb_type {
+                            ArbType::PolyYesKalshiNo => "PolyYES+KalshiNO",
+                            ArbType::KalshiYesPolyNo => "KalshiYES+PolyNO",
+                        };
+                        // In both arb types: yes_filled=kalshi leg, no_filled=poly leg
+                        tg.alert_trade_executed(
+                            market_id,
+                            &pair.description,
+                            arb_label,
+                            yes_filled,
+                            no_filled,
+                            yes_cost + no_cost,
+                            actual_profit,
+                            &pair.poly_slug,
+                        );
+                    }
                 }
+
+                let (kalshi_price_log, poly_price_log) = match req.arb_type {
+                    ArbType::PolyYesKalshiNo => (req.no_price, req.yes_price),
+                    ArbType::KalshiYesPolyNo => (req.yes_price, req.no_price),
+                };
+                let trade_status = if matched == max_contracts { "filled" }
+                    else if matched > 0 { "partial" }
+                    else { "failed" };
+                write_trade_log(&TradeLogEntry {
+                    timestamp: Utc::now().to_rfc3339(),
+                    pair_id: pair.pair_id.to_string(),
+                    description: pair.description.to_string(),
+                    arb_type: match req.arb_type {
+                        ArbType::PolyYesKalshiNo => "PolyYesKalshiNo".to_string(),
+                        ArbType::KalshiYesPolyNo => "KalshiYesPolyNo".to_string(),
+                    },
+                    contracts: max_contracts,
+                    kalshi_price: kalshi_price_log,
+                    poly_price: poly_price_log,
+                    kalshi_filled: yes_filled,
+                    poly_filled: no_filled,
+                    total_cost_cents: yes_cost + no_cost,
+                    expected_profit_cents: profit_cents,
+                    status: trade_status.to_string(),
+                });
 
                 Ok(ExecutionResult {
                     market_id,
@@ -292,6 +342,27 @@ impl ExecutionEngine {
             }
             Err(_e) => {
                 self.circuit_breaker.record_error().await;
+                let (kalshi_price_log, poly_price_log) = match req.arb_type {
+                    ArbType::PolyYesKalshiNo => (req.no_price, req.yes_price),
+                    ArbType::KalshiYesPolyNo => (req.yes_price, req.no_price),
+                };
+                write_trade_log(&TradeLogEntry {
+                    timestamp: Utc::now().to_rfc3339(),
+                    pair_id: pair.pair_id.to_string(),
+                    description: pair.description.to_string(),
+                    arb_type: match req.arb_type {
+                        ArbType::PolyYesKalshiNo => "PolyYesKalshiNo".to_string(),
+                        ArbType::KalshiYesPolyNo => "KalshiYesPolyNo".to_string(),
+                    },
+                    contracts: max_contracts,
+                    kalshi_price: kalshi_price_log,
+                    poly_price: poly_price_log,
+                    kalshi_filled: 0,
+                    poly_filled: 0,
+                    total_cost_cents: 0,
+                    expected_profit_cents: profit_cents,
+                    status: "error".to_string(),
+                });
                 Ok(ExecutionResult {
                     market_id,
                     success: false,
@@ -312,7 +383,7 @@ impl ExecutionEngine {
         match req.arb_type {
             // === CROSS-PLATFORM: Poly YES + Kalshi NO ===
             ArbType::PolyYesKalshiNo => {
-                let kalshi_fut = self.kalshi.buy_ioc(
+                let kalshi_fut = self.kalshi.place_buy_order(
                     &pair.kalshi_market_ticker,
                     "no",
                     req.no_price as i64,
@@ -326,22 +397,83 @@ impl ExecutionEngine {
                         execute_poly_leg_us(&poly_us, &slug, ArbType::PolyYesKalshiNo, yes_price, contracts).await
                     };
                     let (kalshi_res, poly_res) = tokio::join!(kalshi_fut, poly_fut);
+
+                    // For resting limit orders: poll up to 5s then cancel if still pending
+                    let kalshi_res = maybe_poll_kalshi_limit(&self.kalshi, kalshi_res, Duration::from_secs(5)).await;
+
                     let (k_filled, k_cost, k_id) = self.extract_kalshi(kalshi_res);
-                    Ok((k_filled, poly_res.0, k_cost, poly_res.1, k_id, poly_res.2))
-                } else {
-                    let poly_fut = self.poly_async.buy_fak(
+                    let (p_filled, p_cost, p_id) = poly_res;
+
+                    // Rollback one-sided fill
+                    if k_filled > 0 && p_filled == 0 {
+                        warn!("[EXEC] ⚠️ Unwinding one-sided fill: Kalshi NO filled={} Poly YES=0 | ticker={} slug={}",
+                            k_filled, pair.kalshi_market_ticker, pair.poly_slug);
+                        let kalshi = self.kalshi.clone();
+                        let ticker = pair.kalshi_market_ticker.to_string();
+                        let price = req.no_price as i64;
+                        tokio::spawn(async move {
+                            unwind_kalshi_fill(kalshi, ticker, "no", price, k_filled).await;
+                        });
+                    } else if p_filled > 0 && k_filled == 0 {
+                        warn!("[EXEC] ⚠️ Unwinding one-sided fill: Poly YES filled={} Kalshi NO=0 | slug={} order={}",
+                            p_filled, pair.poly_slug, p_id);
+                        let poly_us_clone = self.poly_us.clone();
+                        let order_id = p_id.clone();
+                        let slug = pair.poly_slug.to_string();
+                        let price = req.yes_price;
+                        tokio::spawn(async move {
+                            if let Some(ref us) = poly_us_clone {
+                                unwind_poly_us_fill(us.clone(), order_id, slug, "yes", price, p_filled).await;
+                            }
+                        });
+                    }
+
+                    Ok((k_filled, p_filled, k_cost, p_cost, k_id, p_id))
+                } else if let Some(ref poly_clob) = self.poly_async {
+                    let poly_fut = poly_clob.buy_fak(
                         &pair.poly_yes_token,
                         cents_to_price(req.yes_price),
                         contracts as f64,
                     );
                     let (kalshi_res, poly_res) = tokio::join!(kalshi_fut, poly_fut);
-                    self.extract_cross_results(kalshi_res, poly_res)
+
+                    // For resting limit orders: poll up to 5s then cancel if still pending
+                    let kalshi_res = maybe_poll_kalshi_limit(&self.kalshi, kalshi_res, Duration::from_secs(5)).await;
+
+                    let (k_filled, p_filled, k_cost, p_cost, k_id, p_id) =
+                        self.extract_cross_results(kalshi_res, poly_res)?;
+
+                    // Rollback one-sided fill
+                    if k_filled > 0 && p_filled == 0 {
+                        warn!("[EXEC] ⚠️ Unwinding one-sided fill: Kalshi NO filled={} Poly CLOB YES=0 | ticker={}",
+                            k_filled, pair.kalshi_market_ticker);
+                        let kalshi = self.kalshi.clone();
+                        let ticker = pair.kalshi_market_ticker.to_string();
+                        let price = req.no_price as i64;
+                        tokio::spawn(async move {
+                            unwind_kalshi_fill(kalshi, ticker, "no", price, k_filled).await;
+                        });
+                    } else if p_filled > 0 && k_filled == 0 {
+                        warn!("[EXEC] ⚠️ Unwinding one-sided fill: Poly CLOB YES filled={} Kalshi NO=0 | token={}",
+                            p_filled, pair.poly_yes_token);
+                        let poly_clob_clone = poly_clob.clone();
+                        let token = pair.poly_yes_token.to_string();
+                        let price = req.yes_price;
+                        tokio::spawn(async move {
+                            unwind_poly_clob_fill(poly_clob_clone, token, price, p_filled).await;
+                        });
+                    }
+
+                    Ok((k_filled, p_filled, k_cost, p_cost, k_id, p_id))
+                } else {
+                    warn!("[EXEC] No Polymarket client available for YES leg");
+                    Ok((0, 0, 0, 0, String::new(), String::new()))
                 }
             }
 
             // === CROSS-PLATFORM: Kalshi YES + Poly NO ===
             ArbType::KalshiYesPolyNo => {
-                let kalshi_fut = self.kalshi.buy_ioc(
+                let kalshi_fut = self.kalshi.place_buy_order(
                     &pair.kalshi_market_ticker,
                     "yes",
                     req.yes_price as i64,
@@ -355,16 +487,77 @@ impl ExecutionEngine {
                         execute_poly_leg_us(&poly_us, &slug, ArbType::KalshiYesPolyNo, no_price, contracts).await
                     };
                     let (kalshi_res, poly_res) = tokio::join!(kalshi_fut, poly_fut);
+
+                    // For resting limit orders: poll up to 5s then cancel if still pending
+                    let kalshi_res = maybe_poll_kalshi_limit(&self.kalshi, kalshi_res, Duration::from_secs(5)).await;
+
                     let (k_filled, k_cost, k_id) = self.extract_kalshi(kalshi_res);
-                    Ok((k_filled, poly_res.0, k_cost, poly_res.1, k_id, poly_res.2))
-                } else {
-                    let poly_fut = self.poly_async.buy_fak(
+                    let (p_filled, p_cost, p_id) = poly_res;
+
+                    // Rollback one-sided fill
+                    if k_filled > 0 && p_filled == 0 {
+                        warn!("[EXEC] ⚠️ Unwinding one-sided fill: Kalshi YES filled={} Poly NO=0 | ticker={} slug={}",
+                            k_filled, pair.kalshi_market_ticker, pair.poly_slug);
+                        let kalshi = self.kalshi.clone();
+                        let ticker = pair.kalshi_market_ticker.to_string();
+                        let price = req.yes_price as i64;
+                        tokio::spawn(async move {
+                            unwind_kalshi_fill(kalshi, ticker, "yes", price, k_filled).await;
+                        });
+                    } else if p_filled > 0 && k_filled == 0 {
+                        warn!("[EXEC] ⚠️ Unwinding one-sided fill: Poly NO filled={} Kalshi YES=0 | slug={} order={}",
+                            p_filled, pair.poly_slug, p_id);
+                        let poly_us_clone = self.poly_us.clone();
+                        let order_id = p_id.clone();
+                        let slug = pair.poly_slug.to_string();
+                        let price = req.no_price;
+                        tokio::spawn(async move {
+                            if let Some(ref us) = poly_us_clone {
+                                unwind_poly_us_fill(us.clone(), order_id, slug, "no", price, p_filled).await;
+                            }
+                        });
+                    }
+
+                    Ok((k_filled, p_filled, k_cost, p_cost, k_id, p_id))
+                } else if let Some(ref poly_clob) = self.poly_async {
+                    let poly_fut = poly_clob.buy_fak(
                         &pair.poly_no_token,
                         cents_to_price(req.no_price),
                         contracts as f64,
                     );
                     let (kalshi_res, poly_res) = tokio::join!(kalshi_fut, poly_fut);
-                    self.extract_cross_results(kalshi_res, poly_res)
+
+                    // For resting limit orders: poll up to 5s then cancel if still pending
+                    let kalshi_res = maybe_poll_kalshi_limit(&self.kalshi, kalshi_res, Duration::from_secs(5)).await;
+
+                    let (k_filled, p_filled, k_cost, p_cost, k_id, p_id) =
+                        self.extract_cross_results(kalshi_res, poly_res)?;
+
+                    // Rollback one-sided fill
+                    if k_filled > 0 && p_filled == 0 {
+                        warn!("[EXEC] ⚠️ Unwinding one-sided fill: Kalshi YES filled={} Poly CLOB NO=0 | ticker={}",
+                            k_filled, pair.kalshi_market_ticker);
+                        let kalshi = self.kalshi.clone();
+                        let ticker = pair.kalshi_market_ticker.to_string();
+                        let price = req.yes_price as i64;
+                        tokio::spawn(async move {
+                            unwind_kalshi_fill(kalshi, ticker, "yes", price, k_filled).await;
+                        });
+                    } else if p_filled > 0 && k_filled == 0 {
+                        warn!("[EXEC] ⚠️ Unwinding one-sided fill: Poly CLOB NO filled={} Kalshi YES=0 | token={}",
+                            p_filled, pair.poly_no_token);
+                        let poly_clob_clone = poly_clob.clone();
+                        let token = pair.poly_no_token.to_string();
+                        let price = req.no_price;
+                        tokio::spawn(async move {
+                            unwind_poly_clob_fill(poly_clob_clone, token, price, p_filled).await;
+                        });
+                    }
+
+                    Ok((k_filled, p_filled, k_cost, p_cost, k_id, p_id))
+                } else {
+                    warn!("[EXEC] No Polymarket client available for NO leg");
+                    Ok((0, 0, 0, 0, String::new(), String::new()))
                 }
             }
         }
@@ -414,7 +607,7 @@ impl ExecutionEngine {
     /// Prefers the Polymarket US client when available; falls back to the CLOB client.
     async fn auto_close_background(
         kalshi: Arc<KalshiApiClient>,
-        poly_async: Arc<SharedAsyncClient>,
+        poly_async: Option<Arc<SharedAsyncClient>>,
         poly_us: Option<Arc<PolymarketUsClient>>,
         arb_type: ArbType,
         yes_filled: i64,
@@ -465,12 +658,14 @@ impl ExecutionEngine {
                             }
                             Err(e) => warn!("[EXEC] ⚠️ Failed to close PolyUS YES excess: {}", e),
                         }
-                    } else {
+                    } else if let Some(ref poly_clob) = poly_async {
                         let close_price = cents_to_price(close_price_cents);
-                        match poly_async.sell_fak(&poly_yes_token, close_price, excess as f64).await {
+                        match poly_clob.sell_fak(&poly_yes_token, close_price, excess as f64).await {
                             Ok(fill) => log_close_pnl("Poly", fill.filled_size as i64, (fill.fill_cost * 100.0) as i64),
                             Err(e) => warn!("[EXEC] ⚠️ Failed to close Poly YES excess: {}", e),
                         }
+                    } else {
+                        warn!("[EXEC] ⚠️ No Poly client to close YES excess");
                     }
                 } else {
                     // Kalshi NO excess
@@ -516,12 +711,14 @@ impl ExecutionEngine {
                             }
                             Err(e) => warn!("[EXEC] ⚠️ Failed to close PolyUS NO excess: {}", e),
                         }
-                    } else {
+                    } else if let Some(ref poly_clob) = poly_async {
                         let close_price = cents_to_price(close_price_cents);
-                        match poly_async.sell_fak(&poly_no_token, close_price, excess as f64).await {
+                        match poly_clob.sell_fak(&poly_no_token, close_price, excess as f64).await {
                             Ok(fill) => log_close_pnl("Poly", fill.filled_size as i64, (fill.fill_cost * 100.0) as i64),
                             Err(e) => warn!("[EXEC] ⚠️ Failed to close Poly NO excess: {}", e),
                         }
+                    } else {
+                        warn!("[EXEC] ⚠️ No Poly client to close NO excess");
                     }
                 }
             }
@@ -549,6 +746,156 @@ impl ExecutionEngine {
                 in_flight[slot].fetch_and(mask, Ordering::Release);
             });
         }
+    }
+}
+
+// =============================================================================
+// ROLLBACK HELPERS
+// =============================================================================
+
+/// For a resting Kalshi limit order with 0 fills: poll every 500ms for up to
+/// `timeout`, then cancel and return the final order state if still unfilled.
+/// For IOC orders or already-executed/canceled orders, returns immediately.
+async fn maybe_poll_kalshi_limit(
+    kalshi: &KalshiApiClient,
+    kalshi_res: Result<KalshiOrderResponse>,
+    timeout: Duration,
+) -> Result<KalshiOrderResponse> {
+    use crate::config::KalshiOrderType;
+    if crate::config::kalshi_order_type() != KalshiOrderType::Limit {
+        return kalshi_res;
+    }
+    let resp = match kalshi_res {
+        Ok(r) => r,
+        Err(e) => return Err(e),
+    };
+    // Nothing to poll if already settled
+    if resp.order.filled_count() > 0
+        || resp.order.status == "executed"
+        || resp.order.status == "canceled"
+        || resp.order.order_id.is_empty()
+    {
+        return Ok(resp);
+    }
+
+    let order_id = resp.order.order_id.clone();
+    let poll_interval = Duration::from_millis(500);
+    let deadline = tokio::time::Instant::now() + timeout;
+    let mut current = resp;
+
+    info!("[EXEC] Kalshi limit order {} resting, polling for up to {}s",
+        order_id, timeout.as_secs());
+
+    loop {
+        tokio::time::sleep(poll_interval).await;
+        if tokio::time::Instant::now() >= deadline {
+            break;
+        }
+        match kalshi.get_order(&order_id).await {
+            Ok(updated) => {
+                let filled = updated.order.filled_count();
+                if filled > 0 || updated.order.status == "executed" || updated.order.status == "canceled" {
+                    info!("[EXEC] Kalshi limit order {} filled={} status={}",
+                        order_id, filled, updated.order.status);
+                    return Ok(updated);
+                }
+                current = updated;
+            }
+            Err(e) => warn!("[EXEC] Failed to poll Kalshi order {}: {}", order_id, e),
+        }
+    }
+
+    // Timed out — cancel the resting order
+    warn!("[EXEC] Kalshi limit order {} still pending after {}s, canceling",
+        order_id, timeout.as_secs());
+    match kalshi.cancel_order(&order_id).await {
+        Ok(canceled) => {
+            info!("[EXEC] Canceled Kalshi order {}: filled={}", order_id, canceled.order.filled_count());
+            Ok(canceled)
+        }
+        Err(e) => {
+            warn!("[EXEC] Failed to cancel Kalshi limit order {}: {}", order_id, e);
+            Ok(current)
+        }
+    }
+}
+
+/// Unwind a one-sided Kalshi fill by selling back with IOC at a slight discount.
+async fn unwind_kalshi_fill(
+    kalshi: Arc<KalshiApiClient>,
+    ticker: String,
+    side: &'static str,
+    original_price_cents: i64,
+    count: i64,
+) {
+    let sell_price = (original_price_cents - 10).max(1);
+    info!("[EXEC] Kalshi unwind: {} {} @{}¢ x{}", side, ticker, sell_price, count);
+    match kalshi.sell_ioc(&ticker, side, sell_price, count).await {
+        Ok(resp) => {
+            let filled = resp.order.filled_count();
+            let proceeds = resp.order.taker_fill_cost.unwrap_or(0) + resp.order.maker_fill_cost.unwrap_or(0);
+            if filled > 0 {
+                info!("[EXEC] ✅ Kalshi unwind: sold={} proceeds={}¢", filled, proceeds);
+            } else {
+                warn!("[EXEC] ⚠️ Kalshi unwind: 0 filled (market moved or no inventory)");
+            }
+        }
+        Err(e) => warn!("[EXEC] ⚠️ Kalshi unwind sell_ioc failed: {}", e),
+    }
+}
+
+/// Unwind a one-sided Poly US fill: try cancel first (GTC may not have filled),
+/// then place a sell-back limit order if cancel fails.
+async fn unwind_poly_us_fill(
+    poly_us: Arc<PolymarketUsClient>,
+    order_id: String,
+    slug: String,
+    side: &'static str,
+    price_cents: u16,
+    count: i64,
+) {
+    info!("[EXEC] Poly US unwind: cancel order {}", order_id);
+    match poly_us.cancel_order(&order_id).await {
+        Ok(_) => {
+            info!("[EXEC] ✅ Poly US order {} canceled", order_id);
+            return;
+        }
+        Err(e) => warn!("[EXEC] Poly US cancel failed (may have filled): {}", e),
+    }
+    // Cancel failed — order may have executed; sell back at slight discount
+    let sell_price = (price_cents as i16 - 10).max(1) as u16;
+    let order_req = match side {
+        "yes" => LimitOrderRequest::sell_yes(&slug, sell_price as f64 / 100.0, count as u64),
+        _     => LimitOrderRequest::sell_no(&slug, sell_price as f64 / 100.0, count as u64),
+    };
+    info!("[EXEC] Poly US unwind sell: {} @{}¢ x{}", side, sell_price, count);
+    match poly_us.place_limit_order(&order_req).await {
+        Ok(resp) => info!("[EXEC] ✅ Poly US unwind sell placed: id={:?}", resp.id),
+        Err(e)   => warn!("[EXEC] ⚠️ Poly US unwind sell failed: {}", e),
+    }
+}
+
+/// Unwind a one-sided Poly CLOB fill by selling back with FAK at a slight discount.
+async fn unwind_poly_clob_fill(
+    poly_clob: Arc<SharedAsyncClient>,
+    token: String,
+    original_price_cents: u16,
+    count: i64,
+) {
+    let sell_price_cents = (original_price_cents as i16 - 10).max(1) as u16;
+    let sell_price = cents_to_price(sell_price_cents);
+    info!("[EXEC] Poly CLOB unwind: sell @{} x{}", sell_price, count);
+    match poly_clob.sell_fak(&token, sell_price, count as f64).await {
+        Ok(fill) => {
+            let filled = fill.filled_size as i64;
+            let proceeds = (fill.fill_cost * 100.0) as i64;
+            if filled > 0 {
+                info!("[EXEC] ✅ Poly CLOB unwind: sold={} proceeds={}¢", filled, proceeds);
+            } else {
+                warn!("[EXEC] ⚠️ Poly CLOB unwind: 0 filled (market moved)");
+            }
+        }
+        Err(e) => warn!("[EXEC] ⚠️ Poly CLOB unwind sell_fak failed: {}", e),
     }
 }
 
@@ -607,6 +954,48 @@ pub struct ExecutionResult {
 /// Create execution channel
 pub fn create_execution_channel() -> (mpsc::Sender<FastExecutionRequest>, mpsc::Receiver<FastExecutionRequest>) {
     mpsc::channel(256)
+}
+
+// =============================================================================
+// TRADE LOG
+// =============================================================================
+
+#[derive(Serialize)]
+struct TradeLogEntry {
+    timestamp: String,
+    pair_id: String,
+    description: String,
+    arb_type: String,
+    contracts: i64,
+    kalshi_price: u16,
+    poly_price: u16,
+    kalshi_filled: i64,
+    poly_filled: i64,
+    total_cost_cents: i64,
+    expected_profit_cents: i16,
+    status: String,
+}
+
+/// Append a single JSON line to state/trades.jsonl (sync, called from async context).
+fn write_trade_log(entry: &TradeLogEntry) {
+    use std::io::Write;
+    match serde_json::to_string(entry) {
+        Ok(json) => {
+            match std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("state/trades.jsonl")
+            {
+                Ok(mut f) => {
+                    if let Err(e) = writeln!(f, "{}", json) {
+                        warn!("[EXEC] Failed to write trade log: {}", e);
+                    }
+                }
+                Err(e) => warn!("[EXEC] Failed to open trade log: {}", e),
+            }
+        }
+        Err(e) => warn!("[EXEC] Failed to serialize trade log entry: {}", e),
+    }
 }
 
 /// Execution loop

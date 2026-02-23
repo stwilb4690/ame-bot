@@ -376,6 +376,18 @@ impl PositionTracker {
         self.daily_realized_pnl
     }
     
+    /// Mark a position as early-closed with a realized P&L (set by the position monitor).
+    pub fn close_position(&mut self, market_id: &str, realized_pnl_usd: f64) {
+        if let Some(position) = self.positions.get_mut(market_id) {
+            position.status = "closed".to_string();
+            position.realized_pnl = Some(realized_pnl_usd);
+            self.daily_realized_pnl += realized_pnl_usd;
+            self.all_time_pnl += realized_pnl_usd;
+            info!("[POSITIONS] Early-closed {}: P&L ${:.4}", market_id, realized_pnl_usd);
+            self.save_async();
+        }
+    }
+
     /// Reset daily counters (call at midnight)
     pub fn reset_daily(&mut self) {
         self.daily_realized_pnl = 0.0;

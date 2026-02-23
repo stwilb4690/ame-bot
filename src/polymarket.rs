@@ -5,7 +5,8 @@ use anyhow::{Context, Result};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::time::Duration;
+use std::sync::atomic::Ordering;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 use tokio::time::{interval, Instant};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
@@ -91,6 +92,39 @@ impl GammaClient {
         Ok(None)
     }
 
+    /// Search Gamma markets by a keyword/tag.
+    ///
+    /// Queries `GET /markets?tag={tag}&active=true&closed=false&limit=500`.
+    /// Returns all active non-closed markets that have valid CLOB token IDs.
+    /// Returns an empty Vec (gracefully) on API errors — callers should treat 0
+    /// results as "no pairs found" for this category.
+    pub async fn search_by_tag(&self, tag: &str) -> Result<Vec<GammaSearchResult>> {
+        let url = format!("{}/markets?tag={}&active=true&closed=false&limit=500",
+                          GAMMA_API_BASE, tag);
+        let resp = match self.http.get(&url).send().await {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::warn!("[GAMMA] search_by_tag({}) request failed: {}", tag, e);
+                return Ok(vec![]);
+            }
+        };
+        if !resp.status().is_success() {
+            tracing::warn!("[GAMMA] search_by_tag({}) non-200: {}", tag, resp.status());
+            return Ok(vec![]);
+        }
+        let markets: Vec<GammaSearchResult> = match resp.json().await {
+            Ok(m) => m,
+            Err(e) => {
+                tracing::warn!("[GAMMA] search_by_tag({}) JSON parse error: {}", tag, e);
+                return Ok(vec![]);
+            }
+        };
+        Ok(markets.into_iter()
+            .filter(|m| m.closed != Some(true) && m.active != Some(false))
+            .filter(|m| m.clob_token_ids.as_ref().map(|s| !s.is_empty()).unwrap_or(false))
+            .collect())
+    }
+
     async fn try_lookup_slug(&self, slug: &str) -> Result<Option<(String, String, String)>> {
         let url = format!("{}/markets?slug={}", GAMMA_API_BASE, slug);
 
@@ -136,6 +170,20 @@ struct GammaMarket {
     clob_token_ids: Option<String>,
     active: Option<bool>,
     closed: Option<bool>,
+}
+
+/// Full Gamma market record — used for keyword-based crypto/economic searches.
+#[derive(Debug, Deserialize)]
+pub struct GammaSearchResult {
+    pub slug: Option<String>,
+    pub question: Option<String>,
+    #[serde(rename = "clobTokenIds")]
+    pub clob_token_ids: Option<String>,
+    pub active: Option<bool>,
+    pub closed: Option<bool>,
+    /// End date/time in ISO-8601 (e.g. "2026-02-22T20:00:00Z")
+    #[serde(rename = "endDate")]
+    pub end_date: Option<String>,
 }
 
 /// Increment the date in a Polymarket slug by 1 day
@@ -291,6 +339,11 @@ pub async fn run_ws(
     Ok(())
 }
 
+#[inline(always)]
+fn unix_secs_now() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
+}
+
 /// Process book snapshot
 #[inline]
 async fn process_book(
@@ -316,6 +369,7 @@ async fn process_book(
     if let Some(&market_id) = state.poly_yes_to_id.get(&token_hash) {
         let market = &state.markets[market_id as usize];
         market.poly.update_yes(best_ask, ask_size);
+        state.poly_update_ts[market_id as usize].store(unix_secs_now(), Ordering::Release);
 
         // Check arbs
         let arb_mask = market.check_arbs(threshold_cents);
@@ -327,6 +381,7 @@ async fn process_book(
     else if let Some(&market_id) = state.poly_no_to_id.get(&token_hash) {
         let market = &state.markets[market_id as usize];
         market.poly.update_no(best_ask, ask_size);
+        state.poly_update_ts[market_id as usize].store(unix_secs_now(), Ordering::Release);
 
         // Check arbs
         let arb_mask = market.check_arbs(threshold_cents);
@@ -366,6 +421,7 @@ async fn process_price_change(
             // Keep existing size - it may be stale but FAK orders handle partial fills.
             // Size is an upper bound anyway; better to attempt arb than miss it.
             market.poly.update_yes(price, current_yes_size);
+            state.poly_update_ts[market_id as usize].store(unix_secs_now(), Ordering::Release);
 
             let arb_mask = market.check_arbs(threshold_cents);
             if arb_mask != 0 {
@@ -380,6 +436,7 @@ async fn process_price_change(
 
         if price < current_no || current_no == 0 {
             market.poly.update_no(price, current_no_size);
+            state.poly_update_ts[market_id as usize].store(unix_secs_now(), Ordering::Release);
 
             let arb_mask = market.check_arbs(threshold_cents);
             if arb_mask != 0 {

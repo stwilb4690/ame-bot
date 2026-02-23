@@ -1,0 +1,33 @@
+[2m2026-02-21T19:37:07.844830Z[0m [32m INFO[0m [2mame_bot[0m[2m:[0m 🚀 AME Bot v2.0.0
+[2m2026-02-21T19:37:07.844858Z[0m [32m INFO[0m [2mame_bot[0m[2m:[0m    Mode: full
+[2m2026-02-21T19:37:07.844866Z[0m [32m INFO[0m [2mame_bot[0m[2m:[0m    Env:  prod
+[2m2026-02-21T19:37:07.844871Z[0m [32m INFO[0m [2mame_bot[0m[2m:[0m    Kalshi API: https://api.elections.kalshi.com/trade-api/v2
+[2m2026-02-21T19:37:07.844874Z[0m [33m WARN[0m [2mame_bot[0m[2m:[0m    LIVE EXECUTION mode
+[2m2026-02-21T19:37:07.845122Z[0m [32m INFO[0m [2mame_bot[0m[2m:[0m [KALSHI] API key loaded
+[2m2026-02-21T19:37:07.847499Z[0m [32m INFO[0m [2mame_bot[0m[2m:[0m [POLY-US] Retail API client initialised (key=82170d36...)
+[2m2026-02-21T19:37:07.847509Z[0m [32m INFO[0m [2mame_bot[0m[2m:[0m [POLYMARKET] CLOB credentials not set — using US client for Polymarket execution
+[2m2026-02-21T19:37:07.847518Z[0m [32m INFO[0m [2mame_bot[0m[2m:[0m [TELEGRAM] Bot configured
+[2m2026-02-21T19:37:07.847613Z[0m [33m WARN[0m [2mame_bot::cache[0m[2m:[0m Failed to parse team cache: missing field `forward` at line 1170 column 1
+[2m2026-02-21T19:37:07.847619Z[0m [32m INFO[0m [2mame_bot[0m[2m:[0m 📂 Loaded 0 team mappings
+[2m2026-02-21T19:37:08.047636Z[0m [32m INFO[0m [2mame_bot[0m[2m:[0m 🔍 Discovering markets...
+[2m2026-02-21T19:37:08.047928Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m 📂 Loaded 258 pairs from cache (age: 44s)
+[2m2026-02-21T19:37:08.047938Z[0m [32m INFO[0m [2mame_bot[0m[2m:[0m 📊 Discovery: 258 market pairs
+[2m2026-02-21T19:37:08.047979Z[0m [32m INFO[0m [2mame_bot[0m[2m:[0m 📡 Tracking 258 total markets
+[2m2026-02-21T19:37:08.047982Z[0m [32m INFO[0m [2mame_bot::circuit_breaker[0m[2m:[0m [CB] Circuit breaker initialized:
+[2m2026-02-21T19:37:08.047983Z[0m [32m INFO[0m [2mame_bot::circuit_breaker[0m[2m:[0m [CB]   Enabled: true
+[2m2026-02-21T19:37:08.047984Z[0m [32m INFO[0m [2mame_bot::circuit_breaker[0m[2m:[0m [CB]   Max position per market: 50000 contracts
+[2m2026-02-21T19:37:08.047985Z[0m [32m INFO[0m [2mame_bot::circuit_breaker[0m[2m:[0m [CB]   Max total position: 100000 contracts
+[2m2026-02-21T19:37:08.047986Z[0m [32m INFO[0m [2mame_bot::circuit_breaker[0m[2m:[0m [CB]   Max daily loss: $500.00
+[2m2026-02-21T19:37:08.047990Z[0m [32m INFO[0m [2mame_bot::circuit_breaker[0m[2m:[0m [CB]   Max consecutive errors: 5
+[2m2026-02-21T19:37:08.047990Z[0m [32m INFO[0m [2mame_bot::circuit_breaker[0m[2m:[0m [CB]   Cooldown: 300s
+[2m2026-02-21T19:37:08.047994Z[0m [32m INFO[0m [2mame_bot[0m[2m:[0m    Threshold: 95¢
+
+thread 'main' (951520) panicked at src/main.rs:326:14:
+poly_async must be Some in full mode
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+   1: core::panicking::panic_fmt
+   2: core::option::expect_failed
+   3: ame_bot::main::{{closure}}
+   4: ame_bot::main
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
