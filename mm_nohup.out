@@ -20,3 +20,4 @@
 [2m2026-02-24T16:00:55.997533Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Control msg: {"type":"subscribed","id":1,"msg":{"channel":"orderbook_delta","sid":2}}
 
 [2m2026-02-24T16:01:10.772441Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] Starting scan loop (2s cadence)
+[2m2026-02-24T16:05:55.778933Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] HEARTBEAT | mode=live pnl=0.00 positions=0 trades=0 books=721 uptime=300s

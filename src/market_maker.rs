@@ -75,9 +75,8 @@ pub struct MarketMeta {
 #[derive(Debug)]
 pub struct LocalOrderBook {
     pub yes_bids: HashMap<i64, i64>, // price -> qty
-    pub yes_asks: HashMap<i64, i64>, // price -> qty
     pub no_bids: HashMap<i64, i64>,  // price -> qty
-    pub no_asks: HashMap<i64, i64>,  // price -> qty
+    // yes_asks and no_asks are derived: YES ask = 100 - best NO bid, NO ask = 100 - best YES bid
     pub seq: u64,
     pub last_update: Instant,
     pub warmup_count: u32,
@@ -100,9 +99,7 @@ impl LocalOrderBook {
     pub fn new() -> Self {
         Self {
             yes_bids: HashMap::new(),
-            yes_asks: HashMap::new(),
             no_bids: HashMap::new(),
-            no_asks: HashMap::new(),
             seq: 0,
             last_update: Instant::now(),
             warmup_count: 0,
@@ -127,7 +124,8 @@ impl LocalOrderBook {
     }
 
     pub fn best_yes_ask(&self) -> Option<(i64, i64)> {
-        self.yes_asks.iter().min_by_key(|(p, _)| *p).map(|(p, q)| (*p, *q))
+        // YES ask = 100 - best NO bid
+        self.no_bids.iter().max_by_key(|(p, _)| *p).map(|(p, q)| (100 - *p, *q))
     }
 
     pub fn best_no_bid(&self) -> Option<(i64, i64)> {
@@ -135,7 +133,8 @@ impl LocalOrderBook {
     }
 
     pub fn best_no_ask(&self) -> Option<(i64, i64)> {
-        self.no_asks.iter().min_by_key(|(p, _)| *p).map(|(p, q)| (*p, *q))
+        // NO ask = 100 - best YES bid
+        self.yes_bids.iter().max_by_key(|(p, _)| *p).map(|(p, q)| (100 - *p, *q))
     }
 
     /// Apply order book deltas (array form from WebSocket)
@@ -228,9 +227,7 @@ impl LocalOrderBook {
 
         // Replace entire order book
         self.yes_bids.clear();
-        self.yes_asks.clear();
         self.no_bids.clear();
-        self.no_asks.clear();
 
         for level in yes_levels {
             if let Some(arr) = level.as_array() {
