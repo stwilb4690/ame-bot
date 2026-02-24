@@ -517,8 +517,9 @@ async fn main() -> Result<()> {
         let state_mm = mm.clone();
         let mut state_shutdown = shutdown_tx.subscribe();
 
-        // Ensure state directory exists
+        // Ensure state and logs directories exist
         std::fs::create_dir_all("state").ok();
+        std::fs::create_dir_all("logs").ok();
 
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(5));

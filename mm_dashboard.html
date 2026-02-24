@@ -273,6 +273,29 @@
     .summary-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 18px; text-align: center; }
     .summary-label { font-size: 10px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 8px; }
     .summary-value { font-family: var(--mono); font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+
+    /* ── Skip Reasons Row ────────────────────────────── */
+    .skip-row { display: flex; gap: 10px; padding: 0 18px 12px; flex-wrap: wrap; }
+    .skip-box {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+      padding: 8px 14px; text-align: center; min-width: 100px;
+    }
+    .skip-box-label { font-size: 9px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+    .skip-box-val { font-family: var(--mono); font-size: 18px; font-weight: 600; color: var(--text-bright); margin-top: 2px; }
+
+    /* ── Event Log ───────────────────────────────────── */
+    .event-log-wrap { max-height: 350px; overflow-y: auto; }
+    .event-badge { display: inline-block; font-size: 8px; font-weight: 700; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+    .event-badge.order_placed   { background: var(--blue-dim); color: var(--blue); }
+    .event-badge.buy_fill       { background: var(--green-dim); color: var(--green); }
+    .event-badge.sell_fill      { background: var(--green-dim); color: var(--green); }
+    .event-badge.buy_timeout    { background: var(--amber-dim); color: var(--amber); }
+    .event-badge.sell_fade      { background: var(--amber-dim); color: var(--amber); }
+    .event-badge.sell_reprice   { background: var(--amber-dim); color: var(--amber); }
+    .event-badge.sell_force_exit{ background: var(--red-dim); color: var(--red); }
+    .event-badge.kill_switch    { background: var(--red-dim); color: var(--red); }
+    .event-badge.sell_all       { background: var(--red-dim); color: var(--red); }
+    .event-badge.order_skipped  { background: rgba(74,96,112,0.2); color: var(--text-dim); }
   </style>
 </head>
 <body>
@@ -440,6 +463,34 @@
         <div class="summary-label">Session P&amp;L</div>
         <div class="summary-value" id="sPnl">—</div>
       </div>
+    </div>
+    <div class="skip-row" id="skipRow"></div>
+  </div>
+
+  <!-- Event Log -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">Event Log</span>
+      <span class="section-count" id="eventCount">0</span>
+    </div>
+    <div class="event-log-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Event</th>
+            <th>Market</th>
+            <th>Side</th>
+            <th>Price</th>
+            <th>Book</th>
+            <th>P&amp;L</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="eventBody">
+          <tr class="empty-row"><td colspan="8">No events yet</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
@@ -642,6 +693,73 @@ async function refresh() {
   var spnlEl = document.getElementById('sPnl');
   spnlEl.textContent = (spnl >= 0 ? '+$' : '-$') + Math.abs(spnl).toFixed(2);
   spnlEl.className   = 'summary-value' + (spnl > 0 ? ' positive' : spnl < 0 ? ' negative' : '');
+
+  // ── Skip Reasons ───────────────────────────────────────────────────────
+  var skipRow = document.getElementById('skipRow');
+  var skipReasons = trades.skip_reasons || {};
+  var skipKeys = Object.keys(skipReasons).filter(function(k) { return skipReasons[k] > 0; });
+  if (skipKeys.length === 0) {
+    skipRow.innerHTML = '';
+  } else {
+    skipRow.innerHTML = skipKeys.map(function(k) {
+      var label = k.replace(/_/g, ' ').toUpperCase();
+      return '<div class="skip-box"><div class="skip-box-label">' + esc(label) +
+        '</div><div class="skip-box-val">' + skipReasons[k] + '</div></div>';
+    }).join('');
+  }
+
+  // ── Event Log ──────────────────────────────────────────────────────────
+  var events = trades.events || [];
+  document.getElementById('eventCount').textContent = events.length;
+  var eventBody = document.getElementById('eventBody');
+  if (!events.length) {
+    eventBody.innerHTML = '<tr class="empty-row"><td colspan="8">No events yet</td></tr>';
+  } else {
+    eventBody.innerHTML = events.slice(0, 30).map(function(ev) {
+      var ts = ev.timestamp || '';
+      var timePart = ts.indexOf('T') >= 0 ? ts.split('T')[1].substring(0, 8) : ts;
+      var evType = ev.event_type || '';
+      var badgeCls = evType.replace(/ /g, '_');
+      var sideHtml = ev.side ? '<span class="badge badge-' + esc(ev.side) + '">' + esc(ev.side.toUpperCase()) + '</span>' : '';
+      var priceHtml = ev.price ? ev.price + '\u00A2' : '';
+      var bookHtml = '';
+      if (ev.book_bid != null && ev.book_ask != null) {
+        bookHtml = '<span style="color:var(--text-dim)">' + ev.book_bid + '/' + ev.book_ask + '</span>';
+      }
+      var pnlHtml = '';
+      if (evType === 'sell_fill' && ev.pnl_dollars != null) {
+        var p = ev.pnl_dollars;
+        var cls = p > 0 ? 'positive' : p < 0 ? 'negative' : '';
+        pnlHtml = '<span class="' + cls + '">' + (p >= 0 ? '+' : '') + '$' + Math.abs(p).toFixed(2) + '</span>';
+      }
+      var notes = '';
+      if (evType === 'order_skipped' && ev.skip_reason) {
+        notes = '<span style="color:var(--text-dim)">' + esc(ev.skip_reason.replace(/_/g, ' ')) + '</span>';
+      } else if (evType === 'sell_fill' && ev.spread_captured != null) {
+        notes = '<span style="color:var(--cyan)">' + ev.spread_captured + '\u00A2 captured</span>';
+      } else if (evType === 'buy_timeout') {
+        notes = '<span style="color:var(--amber)">expired</span>';
+      } else if (evType === 'sell_fade' || evType === 'sell_reprice') {
+        notes = '<span style="color:var(--amber)">\u2192 ' + ev.price + '\u00A2</span>';
+      } else if (evType === 'sell_force_exit') {
+        notes = '<span style="color:var(--red)">force exit</span>';
+      } else if (evType === 'kill_switch') {
+        notes = '<span style="color:var(--red)">kill switch</span>';
+      } else if (evType === 'sell_all') {
+        notes = '<span style="color:var(--red)">manual sell all</span>';
+      }
+      return '<tr>' +
+        '<td style="color:var(--text-dim)">' + esc(timePart) + '</td>' +
+        '<td><span class="event-badge ' + esc(badgeCls) + '">' + esc(evType.replace(/_/g, ' ')) + '</span></td>' +
+        '<td class="tk-cell">' + renderTicker(ev.ticker || '', ev.title || '') + '</td>' +
+        '<td>' + sideHtml + '</td>' +
+        '<td>' + priceHtml + '</td>' +
+        '<td>' + bookHtml + '</td>' +
+        '<td>' + pnlHtml + '</td>' +
+        '<td>' + notes + '</td>' +
+        '</tr>';
+    }).join('');
+  }
 }
 
 // ── Commands ──────────────────────────────────────────────────────────────────

@@ -22,6 +22,33 @@ pub enum Side {
     No,
 }
 
+// ─── OrderEvent ──────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct OrderEvent {
+    pub timestamp: String,
+    pub event_type: String,
+    pub ticker: String,
+    pub title: String,
+    pub side: String,
+    pub price: i64,
+    pub qty: i64,
+    pub order_id: String,
+    pub book_bid: Option<i64>,
+    pub book_ask: Option<i64>,
+    pub book_spread: Option<i64>,
+    pub book_age_secs: Option<u64>,
+    pub fill_price: Option<i64>,
+    pub entry_price: Option<i64>,
+    pub pnl_dollars: Option<f64>,
+    pub hold_secs: Option<u64>,
+    pub spread_captured: Option<i64>,
+    pub fades: Option<u32>,
+    pub reprices: Option<u32>,
+    pub skip_reason: Option<String>,
+    pub exposure_at_event: Option<f64>,
+}
+
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
@@ -316,6 +343,7 @@ pub struct Position {
     pub order_id: String,
     /// Intended exit price (used to seed the sell order)
     pub target_exit_price: i64,
+    pub fill_book_ask: Option<i64>,
 }
 
 // ─── Sell-side fade state ─────────────────────────────────────────────────────
@@ -334,6 +362,8 @@ pub struct SellState {
     pub placed_time: Instant,
     /// When the last fade step was applied
     pub last_fade: Instant,
+    pub fades: u32,
+    pub reprices: u32,
 }
 
 // ─── Quote Request ────────────────────────────────────────────────────────────
@@ -380,6 +410,8 @@ pub struct MarketMaker {
     pub start_time: Instant,
     pub mode: AtomicU8, // 0=paper, 1=live
     pub paused: AtomicBool,
+    pub order_events: Mutex<Vec<OrderEvent>>,
+    pub skip_counts: Mutex<HashMap<String, u64>>,
 }
 
 impl MarketMaker {
@@ -414,11 +446,69 @@ impl MarketMaker {
             start_time: Instant::now(),
             mode: AtomicU8::new(0),
             paused: AtomicBool::new(false),
+            order_events: Mutex::new(Vec::new()),
+            skip_counts: Mutex::new(HashMap::new()),
         }
     }
 
     pub async fn register_market(&self, meta: MarketMeta) {
         self.market_meta.write().await.insert(meta.ticker.clone(), meta);
+    }
+
+    async fn make_event(&self, event_type: &str, ticker: &str, side: &str, price: i64, qty: i64, order_id: &str) -> OrderEvent {
+        let title = {
+            let meta = self.market_meta.read().await;
+            meta.get(ticker).map(|m| m.title.clone()).unwrap_or_default()
+        };
+        let (book_bid, book_ask, book_age) = {
+            let books = self.books.lock().await;
+            if let Some(book) = books.get(ticker) {
+                let bid = if side == "yes" { book.best_yes_bid().map(|(p,_)| p) } else { book.best_no_bid().map(|(p,_)| p) };
+                let ask = if side == "yes" { book.best_yes_ask().map(|(p,_)| p) } else { book.best_no_ask().map(|(p,_)| p) };
+                (bid, ask, Some(book.seconds_since_activity()))
+            } else {
+                (None, None, None)
+            }
+        };
+        let book_spread = match (book_bid, book_ask) { (Some(b), Some(a)) => Some(a - b), _ => None };
+        let exposure = {
+            let pos_exp: f64 = self.positions.lock().await.values().map(|p| (p.entry_price * p.qty) as f64 / 100.0).sum();
+            let pend_exp: f64 = self.pending_orders.lock().await.values().map(|(q,_)| (q.bid_price * q.size) as f64 / 100.0).sum();
+            Some(pos_exp + pend_exp)
+        };
+        OrderEvent {
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            event_type: event_type.to_string(),
+            ticker: ticker.to_string(),
+            title,
+            side: side.to_string(),
+            price, qty,
+            order_id: order_id.to_string(),
+            book_bid, book_ask, book_spread, book_age_secs: book_age,
+            fill_price: None, entry_price: None, pnl_dollars: None,
+            hold_secs: None, spread_captured: None, fades: None, reprices: None,
+            skip_reason: None, exposure_at_event: exposure,
+        }
+    }
+
+    async fn log_event(&self, event: OrderEvent) {
+        if let Ok(line) = serde_json::to_string(&event) {
+            use std::io::Write;
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true).append(true)
+                .open("logs/mm_events.jsonl")
+            {
+                let _ = writeln!(f, "{}", line);
+            }
+        }
+        let mut events = self.order_events.lock().await;
+        events.push(event);
+        if events.len() > 200 { let excess = events.len() - 200; events.drain(0..excess); }
+    }
+
+    async fn record_skip(&self, reason: &str) {
+        let mut skips = self.skip_counts.lock().await;
+        *skips.entry(reason.to_string()).or_insert(0) += 1;
     }
 
     pub async fn on_snapshot(
@@ -594,6 +684,21 @@ impl MarketMaker {
                 existing.qty,
                 pnl,
             );
+
+            let (fades, reprices) = {
+                let ss = self.sell_states.lock().await;
+                ss.get(ticker).map(|s| (s.fades, s.reprices)).unwrap_or((0, 0))
+            };
+            let sell_side_str = if existing.side == Side::Yes { "yes" } else { "no" };
+            let mut event = self.make_event("sell_fill", ticker, sell_side_str, filled_price, existing.qty, order_id_str).await;
+            event.fill_price = Some(filled_price);
+            event.entry_price = Some(existing.entry_price);
+            event.pnl_dollars = Some(pnl);
+            event.hold_secs = Some(existing.entry_time.elapsed().as_secs());
+            event.spread_captured = Some(filled_price - existing.entry_price);
+            event.fades = Some(fades);
+            event.reprices = Some(reprices);
+            self.log_event(event).await;
         } else {
             // ── Buy fill: open position ─────────────────────────────────────
             // Retrieve intended exit price from the pending quote before removing it
@@ -630,6 +735,13 @@ impl MarketMaker {
                 }
             };
 
+            let fill_book_ask = {
+                let books = self.books.lock().await;
+                books.get(ticker).and_then(|b| match side {
+                    Side::Yes => b.best_yes_ask().map(|(p, _)| p),
+                    Side::No  => b.best_no_ask().map(|(p, _)| p),
+                })
+            };
             let position = Position {
                 ticker: ticker.to_string(),
                 side,
@@ -638,6 +750,7 @@ impl MarketMaker {
                 entry_time: Instant::now(),
                 order_id: order_id_str.to_string(),
                 target_exit_price: target_exit,
+                fill_book_ask,
             };
             self.positions.lock().await.insert(ticker.to_string(), position);
 
@@ -649,6 +762,10 @@ impl MarketMaker {
                 filled_qty,
                 target_exit,
             );
+
+            let mut event = self.make_event("buy_fill", ticker, side_str, filled_price, filled_qty, order_id_str).await;
+            event.fill_price = Some(filled_price);
+            self.log_event(event).await;
 
             // Immediately place a resting sell order at the target ask
             if !self.config.dry_run {
@@ -691,6 +808,8 @@ impl MarketMaker {
                                 qty: filled_qty,
                                 placed_time: Instant::now(),
                                 last_fade: Instant::now(),
+                                fades: 0,
+                                reprices: 0,
                             },
                         );
 
@@ -714,6 +833,8 @@ impl MarketMaker {
                         qty: filled_qty,
                         placed_time: Instant::now(),
                         last_fade: Instant::now(),
+                        fades: 0,
+                        reprices: 0,
                     },
                 );
             }
@@ -743,10 +864,12 @@ impl MarketMaker {
             let pending = self.pending_orders.lock().await;
 
             if positions.contains_key(&opp.ticker) || pending.contains_key(&opp.ticker) {
+                self.record_skip("duplicate_ticker").await;
                 continue;
             }
             // Count filled positions AND pending resting orders against the cap
             if positions.len() + pending.len() >= self.config.max_positions {
+                self.record_skip("max_positions").await;
                 break;
             }
 
@@ -971,6 +1094,10 @@ impl MarketMaker {
                     "[MM] Skipping {} — exposure ${:.2} (pos=${:.2} + pending=${:.2} + new=${:.2}) would exceed ${:.2} limit",
                     opp.ticker, total_exposure, position_exposure, pending_exposure, new_order_cost, self.config.max_exposure
                 );
+                self.record_skip("exposure_cap").await;
+                let mut event = self.make_event("order_skipped", &opp.ticker, side_str, buy_price, self.config.order_size, "").await;
+                event.skip_reason = Some("exposure_cap".to_string());
+                self.log_event(event).await;
                 return;
             }
         }
@@ -1022,7 +1149,11 @@ impl MarketMaker {
                 let mut pending = self.pending_orders.lock().await;
                 let mut order_map = self.order_to_ticker.lock().await;
                 pending.insert(opp.ticker.clone(), (quote, Instant::now()));
-                order_map.insert(order_id, opp.ticker.clone());
+                order_map.insert(order_id.clone(), opp.ticker.clone());
+
+                let mut event = self.make_event("order_placed", &opp.ticker, side_str, buy_price, self.config.order_size, &order_id).await;
+                event.entry_price = Some(sell_price);
+                self.log_event(event).await;
             }
             Err(e) => {
                 warn!("[MM-QUOTE] Failed to place quote for {}: {}", opp.ticker, e);
@@ -1066,6 +1197,8 @@ impl MarketMaker {
             } else {
                 warn!("[MM-TIMEOUT] Buy order for {} timed out — no order_id found, skipping cancel", ticker);
             }
+            let event = self.make_event("buy_timeout", &ticker, "", 0, 0, order_id.as_deref().unwrap_or("")).await;
+            self.log_event(event).await;
         }
 
         // ── Sell order fade + force-exit ──────────────────────────────────────
@@ -1103,6 +1236,12 @@ impl MarketMaker {
                             "[MM-REPRICE] {} old={}¢ current_ask={}¢ new={}¢",
                             ticker, state.ask_price, current_ask, new_ask
                         );
+                        {
+                            let mut ss = self.sell_states.lock().await;
+                            if let Some(s) = ss.get_mut(&ticker) {
+                                s.reprices += 1;
+                            }
+                        }
                         if !self.config.dry_run {
                             let _ = self.kalshi_api.cancel_order(&state.order_id).await;
                             let client_order_id = format!(
@@ -1143,6 +1282,9 @@ impl MarketMaker {
                                 s.last_fade = Instant::now();
                             }
                         }
+                        let mut event = self.make_event("sell_reprice", &ticker, side_str, new_ask, state.qty, &state.order_id).await;
+                        event.entry_price = Some(state.entry_price);
+                        self.log_event(event).await;
                         continue; // Skip normal fade logic
                     }
                 }
@@ -1171,6 +1313,9 @@ impl MarketMaker {
                         }
                     }
                 }
+                let mut event = self.make_event("sell_force_exit", &ticker, side_str, state.entry_price, state.qty, &state.order_id).await;
+                event.entry_price = Some(state.entry_price);
+                self.log_event(event).await;
                 // State will be cleaned up when fill event arrives
                 continue;
             }
@@ -1198,6 +1343,12 @@ impl MarketMaker {
                         ticker, state.ask_price, new_ask, state.entry_price
                     );
 
+                    {
+                        let mut sell_states = self.sell_states.lock().await;
+                        if let Some(s) = sell_states.get_mut(&ticker) {
+                            s.fades += 1;
+                        }
+                    }
                     if !self.config.dry_run {
                         // Cancel current sell, re-post at lower price
                         let _ = self.kalshi_api.cancel_order(&state.order_id).await;
@@ -1247,6 +1398,9 @@ impl MarketMaker {
                             s.last_fade = Instant::now();
                         }
                     }
+                    let mut event = self.make_event("sell_fade", &ticker, side_str, new_ask, state.qty, &state.order_id).await;
+                    event.entry_price = Some(state.entry_price);
+                    self.log_event(event).await;
                 }
             }
         }
@@ -1318,6 +1472,9 @@ impl MarketMaker {
                         error!("[MM-KILL] Emergency sell failed for {}: {}", ticker, e);
                     }
                 }
+                let mut event = self.make_event("kill_switch", ticker, side_str, exit_price, *qty, "").await;
+                event.entry_price = Some(*entry_price);
+                self.log_event(event).await;
             }
         }
 
@@ -1487,12 +1644,16 @@ impl MarketMaker {
         let total = self.total_trades_today.load(Ordering::Relaxed);
         let wins = self.winning_trades.load(Ordering::Relaxed);
         let losses = self.losing_trades.load(Ordering::Relaxed);
+        let events = self.order_events.lock().await;
+        let skips = self.skip_counts.lock().await;
 
         serde_json::json!({
             "total": total,
             "wins": wins,
             "losses": losses,
             "daily_pnl": *self.daily_pnl.lock().await,
+            "events": events.iter().rev().take(100).collect::<Vec<_>>(),
+            "skip_reasons": *skips,
         })
     }
 
@@ -1542,7 +1703,7 @@ impl MarketMaker {
                         .collect()
                 };
                 if !self.config.dry_run {
-                    for (ticker, side, _entry_price, qty) in &positions_snap {
+                    for (ticker, side, entry_price, qty) in &positions_snap {
                         let side_str = if *side == Side::Yes { "yes" } else { "no" };
                         match self.kalshi_api.sell_ioc(ticker, side_str, 1, *qty).await {
                             Ok(resp) => {
@@ -1557,6 +1718,9 @@ impl MarketMaker {
                                 error!("[MM-CMD] sell_all IOC failed for {}: {}", ticker, e);
                             }
                         }
+                        let mut event = self.make_event("sell_all", ticker, side_str, 1, *qty, "").await;
+                        event.entry_price = Some(*entry_price);
+                        self.log_event(event).await;
                     }
                 } else {
                     info!("[MM-CMD] Dry run — skipping IOC sells for {} positions", positions_snap.len());
