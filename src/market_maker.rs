@@ -564,7 +564,8 @@ impl MarketMaker {
                 {
                     Ok(resp) => {
                         let sell_order_id = resp
-                            .get("order_id")
+                            .get("order")
+                            .and_then(|o| o.get("order_id"))
                             .and_then(|v| v.as_str())
                             .unwrap_or("unknown")
                             .to_string();
@@ -821,7 +822,8 @@ impl MarketMaker {
         {
             Ok(resp) => {
                 let order_id = resp
-                    .get("order_id")
+                    .get("order")
+                    .and_then(|o| o.get("order_id"))
                     .and_then(|v| v.as_str())
                     .unwrap_or("unknown")
                     .to_string();
@@ -964,7 +966,8 @@ impl MarketMaker {
                         {
                             Ok(resp) => {
                                 let new_order_id = resp
-                                    .get("order_id")
+                                    .get("order")
+                                    .and_then(|o| o.get("order_id"))
                                     .and_then(|v| v.as_str())
                                     .unwrap_or("unknown")
                                     .to_string();
