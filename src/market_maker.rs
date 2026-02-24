@@ -3,7 +3,7 @@
 // AME Market Maker — single-platform Kalshi market maker engine.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -379,6 +379,7 @@ pub struct MarketMaker {
     pub losing_trades: AtomicUsize,
     pub start_time: Instant,
     pub mode: AtomicU8, // 0=paper, 1=live
+    pub paused: AtomicBool,
 }
 
 impl MarketMaker {
@@ -412,6 +413,7 @@ impl MarketMaker {
             losing_trades: AtomicUsize::new(0),
             start_time: Instant::now(),
             mode: AtomicU8::new(0),
+            paused: AtomicBool::new(false),
         }
     }
 
@@ -727,6 +729,10 @@ impl MarketMaker {
     pub async fn scan_and_act(&self) {
         // Kill switch first — bail out if any position has moved >10¢ against us
         self.check_kill_switch().await;
+
+        if self.paused.load(Ordering::Relaxed) {
+            return;
+        }
 
         let books = self.books.lock().await;
         let opportunities = self.find_opportunities(&books).await;
@@ -1413,6 +1419,7 @@ impl MarketMaker {
             "total_trades_today": total,
             "win_rate": win_rate,
             "uptime_secs": self.start_time.elapsed().as_secs(),
+            "paused": self.paused.load(Ordering::Relaxed),
         })
     }
 
@@ -1476,5 +1483,83 @@ impl MarketMaker {
             "losses": losses,
             "daily_pnl": *self.daily_pnl.lock().await,
         })
+    }
+
+    // ─── Dashboard Command Dispatch ────────────────────────────────────────────
+
+    pub async fn execute_command(&self, cmd: &str) {
+        match cmd {
+            "stop" => {
+                self.paused.store(true, Ordering::Relaxed);
+                info!("[MM-CMD] Bot paused via dashboard command");
+            }
+            "start" => {
+                self.paused.store(false, Ordering::Relaxed);
+                info!("[MM-CMD] Bot resumed via dashboard command");
+            }
+            "restart" => {
+                info!("[MM-CMD] Restarting — canceling all orders and clearing state");
+                if let Err(e) = self.kalshi_api.cancel_all_orders().await {
+                    warn!("[MM-CMD] cancel_all_orders failed during restart: {}", e);
+                }
+                self.positions.lock().await.clear();
+                self.sell_states.lock().await.clear();
+                self.pending_orders.lock().await.clear();
+                self.order_to_ticker.lock().await.clear();
+                self.paused.store(false, Ordering::Relaxed);
+                info!("[MM-CMD] Restart complete — bot is running");
+            }
+            "cancel_all" => {
+                info!("[MM-CMD] Canceling all resting orders via dashboard command");
+                if let Err(e) = self.kalshi_api.cancel_all_orders().await {
+                    warn!("[MM-CMD] cancel_all_orders failed: {}", e);
+                }
+                self.pending_orders.lock().await.clear();
+                self.order_to_ticker.lock().await.clear();
+                info!("[MM-CMD] All orders canceled");
+            }
+            "sell_all" => {
+                warn!("[MM-CMD] SELL ALL triggered via dashboard — canceling orders and exiting all positions");
+                if let Err(e) = self.kalshi_api.cancel_all_orders().await {
+                    warn!("[MM-CMD] cancel_all_orders failed during sell_all: {}", e);
+                }
+                let positions_snap: Vec<(String, Side, i64, i64)> = {
+                    let positions = self.positions.lock().await;
+                    positions
+                        .values()
+                        .map(|p| (p.ticker.clone(), p.side, p.entry_price, p.qty))
+                        .collect()
+                };
+                if !self.config.dry_run {
+                    for (ticker, side, _entry_price, qty) in &positions_snap {
+                        let side_str = if *side == Side::Yes { "yes" } else { "no" };
+                        match self.kalshi_api.sell_ioc(ticker, side_str, 1, *qty).await {
+                            Ok(resp) => {
+                                info!(
+                                    "[MM-CMD] Sell all IOC {} filled={} for {}",
+                                    ticker,
+                                    resp.order.filled_count(),
+                                    ticker,
+                                );
+                            }
+                            Err(e) => {
+                                error!("[MM-CMD] sell_all IOC failed for {}: {}", ticker, e);
+                            }
+                        }
+                    }
+                } else {
+                    info!("[MM-CMD] Dry run — skipping IOC sells for {} positions", positions_snap.len());
+                }
+                self.positions.lock().await.clear();
+                self.sell_states.lock().await.clear();
+                self.pending_orders.lock().await.clear();
+                self.order_to_ticker.lock().await.clear();
+                self.paused.store(true, Ordering::Relaxed);
+                warn!("[MM-CMD] Sell all complete — bot is now paused");
+            }
+            _ => {
+                warn!("[MM-CMD] Unknown command: {}", cmd);
+            }
+        }
     }
 }

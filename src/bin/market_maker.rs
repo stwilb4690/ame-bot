@@ -489,6 +489,16 @@ async fn main() -> Result<()> {
                 tokio::select! {
                     _ = interval.tick() => {
                         tick_count += 1;
+                        // Check for dashboard commands written by serve.py
+                        if let Ok(content) = std::fs::read_to_string("state/mm_command.json") {
+                            let _ = std::fs::remove_file("state/mm_command.json");
+                            if let Ok(cmd_json) = serde_json::from_str::<serde_json::Value>(&content) {
+                                if let Some(cmd) = cmd_json.get("command").and_then(|v| v.as_str()) {
+                                    info!("[MM] Dashboard command received: {}", cmd);
+                                    scan_mm.execute_command(cmd).await;
+                                }
+                            }
+                        }
                         scan_mm.scan_and_act().await;
                         scan_mm.check_timeouts().await;
                         if tick_count % 5 == 0 {
