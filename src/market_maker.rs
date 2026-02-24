@@ -37,6 +37,8 @@ pub struct MmConfig {
     pub balance_reserve: f64,
     /// Max seconds before a resting buy order is canceled (MM_BUY_TIMEOUT_SECS)
     pub buy_timeout_secs: u64,
+    /// Max total capital at risk across pending orders + open positions (MM_MAX_EXPOSURE, dollars)
+    pub max_exposure: f64,
 }
 
 impl MmConfig {
@@ -56,6 +58,7 @@ impl MmConfig {
             dry_run: std::env::var("MM_DRY_RUN").map(|v| v != "0").unwrap_or(true),
             balance_reserve: parse_env("MM_BALANCE_RESERVE", "50").parse().unwrap_or(50.0),
             buy_timeout_secs: parse_env("MM_BUY_TIMEOUT_SECS", "120").parse().unwrap_or(120),
+            max_exposure: parse_env("MM_MAX_EXPOSURE", "30").parse().unwrap_or(30.0),
         }
     }
 }
@@ -801,6 +804,33 @@ impl MarketMaker {
         let sell_price = (opp.exit_price - ask_offset).max(1).min(99);
         // Guard: ensure sell > buy even when offsets eat into a narrow spread
         let sell_price = sell_price.max(buy_price + 1);
+
+        // ── Capital exposure check ────────────────────────────────────────────
+        {
+            let pending_exposure: f64 = {
+                let pending = self.pending_orders.lock().await;
+                pending
+                    .values()
+                    .map(|(q, _)| (q.bid_price * q.size) as f64 / 100.0)
+                    .sum()
+            };
+            let position_exposure: f64 = {
+                let positions = self.positions.lock().await;
+                positions
+                    .values()
+                    .map(|p| (p.entry_price * p.qty) as f64 / 100.0)
+                    .sum()
+            };
+            let new_order_cost = (buy_price * self.config.order_size) as f64 / 100.0;
+            let total_exposure = pending_exposure + position_exposure + new_order_cost;
+            if total_exposure > self.config.max_exposure {
+                info!(
+                    "[MM] Skipping {} — exposure ${:.2} would exceed ${:.2} limit",
+                    opp.ticker, total_exposure, self.config.max_exposure
+                );
+                return;
+            }
+        }
 
         let client_order_id = format!(
             "mm_{}_{}",

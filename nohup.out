@@ -4956,3 +4956,243 @@
 [2m2026-02-24T16:21:12.717471Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 🆕 New ticker not in state (restart to track): KXETH15M-26FEB241130-30
 [2m2026-02-24T16:21:12.717486Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 🆕 New ticker not in state (restart to track): KXSOL15M-26FEB241130-30
 [2m2026-02-24T16:21:12.717499Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 3 total found | 0 still tracked | 3 new (need restart) | 0 Kalshi-only
+[2m2026-02-24T16:26:08.120523Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | PSG at Le Havre: Both Teams to Score - PSG at Le Havre: Both Teams to Score | spread=+2¢ | K_yes=55¢ K_no=53¢ P_yes=53¢
+[2m2026-02-24T16:26:08.120642Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Galatasaray at Juventus: Both Teams to Score - Galatasaray at Juventus: Both Teams to Score | spread=+0¢ | K_yes=61¢ K_no=41¢ P_yes=61¢
+[2m2026-02-24T16:26:08.120673Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Tottenham at Fulham: Totals - Tottenham at Fulham: Totals | spread=+0¢ | K_yes=20¢ K_no=89¢ P_yes=20¢
+[2m2026-02-24T16:26:08.120691Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+3¢ | K_yes=81¢ K_no=26¢ P_yes=78¢
+[2m2026-02-24T16:26:08.120707Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+1¢ | K_yes=55¢ K_no=48¢ P_yes=54¢
+[2m2026-02-24T16:26:08.120721Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Lecce at Como: Totals - Lecce at Como: Totals | spread=-1¢ | K_yes=48¢ K_no=54¢ P_yes=49¢
+[2m2026-02-24T16:26:08.120734Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Orlando at Los Angeles L: Total Points - Orlando at Los Angeles L: Total Points | spread=-1¢ | K_yes=57¢ K_no=44¢ P_yes=58¢
+[2m2026-02-24T16:26:08.120747Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+0¢ | K_yes=42¢ K_no=64¢ P_yes=42¢
+[2m2026-02-24T16:26:08.120761Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+1¢ | K_yes=21¢ K_no=82¢ P_yes=20¢
+[2m2026-02-24T16:26:08.120774Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=-1¢ | K_yes=29¢ K_no=77¢ P_yes=30¢
+[2m2026-02-24T16:26:08.120790Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=+0¢ | K_yes=60¢ K_no=44¢ P_yes=60¢
+[2m2026-02-24T16:26:08.120804Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Ethereum price range on Feb 27, 2026 at 5pm EST? — Ethereum price at Feb 27, 2026 at 5pm EST? | spread=+1¢ | K_yes=2¢ K_no=0¢ P_yes=1¢
+[2m2026-02-24T16:26:08.120822Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | US GDP growth in Q1 2026? — Will **real GDP** increase by more than 1.5% in Q1 2026? | spread=+82¢ | K_yes=86¢ K_no=17¢ P_yes=4¢
+[2m2026-02-24T16:26:08.369329Z[0m [32m INFO[0m [2mame_bot::risk_manager[0m[2m:[0m [RISK] Balance updated: $132.25 | max_portfolio=$11.90 | max_single=$2.65 | reserve=$23.80
+[2m2026-02-24T16:31:08.119193Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 🔄 Running 10-minute short-duration refresh...
+[2m2026-02-24T16:31:08.119319Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] 🔍 Discovering short-duration crypto markets...
+[2m2026-02-24T16:31:08.119352Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Trying series: KXBTC15M, KXETH15M, KXSOL15M, KXBTCUD, KXETHUD, KXSOLUD, KXBTC1H, KXETH1H, KXSOL1H
+[2m2026-02-24T16:31:08.119211Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | PSG at Le Havre: Both Teams to Score - PSG at Le Havre: Both Teams to Score | spread=+2¢ | K_yes=55¢ K_no=53¢ P_yes=53¢
+[2m2026-02-24T16:31:08.119421Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Galatasaray at Juventus: Both Teams to Score - Galatasaray at Juventus: Both Teams to Score | spread=+0¢ | K_yes=61¢ K_no=41¢ P_yes=61¢
+[2m2026-02-24T16:31:08.119448Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Tottenham at Fulham: Totals - Tottenham at Fulham: Totals | spread=+0¢ | K_yes=20¢ K_no=89¢ P_yes=20¢
+[2m2026-02-24T16:31:08.119470Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+3¢ | K_yes=81¢ K_no=26¢ P_yes=78¢
+[2m2026-02-24T16:31:08.119491Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+1¢ | K_yes=55¢ K_no=48¢ P_yes=54¢
+[2m2026-02-24T16:31:08.119511Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Lecce at Como: Totals - Lecce at Como: Totals | spread=-1¢ | K_yes=48¢ K_no=54¢ P_yes=49¢
+[2m2026-02-24T16:31:08.119529Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Orlando at Los Angeles L: Total Points - Orlando at Los Angeles L: Total Points | spread=-1¢ | K_yes=57¢ K_no=44¢ P_yes=58¢
+[2m2026-02-24T16:31:08.119548Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+0¢ | K_yes=42¢ K_no=64¢ P_yes=42¢
+[2m2026-02-24T16:31:08.119567Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+1¢ | K_yes=21¢ K_no=82¢ P_yes=20¢
+[2m2026-02-24T16:31:08.119359Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m 💓 Signal Trader | Open positions: 0 | Daily P&L: $0.00 | HWM: $0.00 | Portfolio VAR: $0.00/$11.90 | Balance: $132.25 | Mode: normal | Obs file: 7597502 bytes
+[2m2026-02-24T16:31:08.119586Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=-1¢ | K_yes=29¢ K_no=77¢ P_yes=30¢
+[2m2026-02-24T16:31:08.119653Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=+0¢ | K_yes=60¢ K_no=44¢ P_yes=60¢
+[2m2026-02-24T16:31:08.119668Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Ethereum price range on Feb 27, 2026 at 5pm EST? — Ethereum price at Feb 27, 2026 at 5pm EST? | spread=+1¢ | K_yes=2¢ K_no=0¢ P_yes=1¢
+[2m2026-02-24T16:31:08.119685Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | US GDP growth in Q1 2026? — Will **real GDP** increase by more than 1.5% in Q1 2026? | spread=+82¢ | K_yes=86¢ K_no=17¢ P_yes=4¢
+[2m2026-02-24T16:31:08.334118Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   1 events in series KXBTC15M
+[2m2026-02-24T16:31:08.337466Z[0m [32m INFO[0m [2mame_bot::risk_manager[0m[2m:[0m [RISK] Balance updated: $168.08 | max_portfolio=$15.13 | max_single=$3.36 | reserve=$30.25
+[2m2026-02-24T16:31:08.433552Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   KXBTC15M-26FEB241145 → 1 markets | e.g. Some("KXBTC15M-26FEB241145-45")
+[2m2026-02-24T16:31:08.433668Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXBTC15M-26FEB241145-45 closes at ts=1771951500 (~13min remaining)
+[2m2026-02-24T16:31:08.433712Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Trying slug: btc-updown-15m-1771950600
+[2m2026-02-24T16:31:08.600933Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] ✅ Matched KXBTC15M-26FEB241145-45 [16:30 UTC-16:45 UTC] ↔ btc-updown-15m-1771950600 [16:30 UTC-16:45 UTC] (exp_ts=1771951500)
+[2m2026-02-24T16:31:08.601024Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXBTC15M [BTC-15m]: 1 Kalshi markets, 1 slug-matched
+[2m2026-02-24T16:31:08.715708Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   1 events in series KXETH15M
+[2m2026-02-24T16:31:08.823581Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   KXETH15M-26FEB241145 → 1 markets | e.g. Some("KXETH15M-26FEB241145-45")
+[2m2026-02-24T16:31:08.823692Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXETH15M-26FEB241145-45 closes at ts=1771951500 (~13min remaining)
+[2m2026-02-24T16:31:08.823727Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Trying slug: eth-updown-15m-1771950600
+[2m2026-02-24T16:31:08.886118Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] ✅ Matched KXETH15M-26FEB241145-45 [16:30 UTC-16:45 UTC] ↔ eth-updown-15m-1771950600 [16:30 UTC-16:45 UTC] (exp_ts=1771951500)
+[2m2026-02-24T16:31:08.886233Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXETH15M [ETH-15m]: 1 Kalshi markets, 1 slug-matched
+[2m2026-02-24T16:31:09.231110Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   1 events in series KXSOL15M
+[2m2026-02-24T16:31:09.734661Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   KXSOL15M-26FEB241145 → 1 markets | e.g. Some("KXSOL15M-26FEB241145-45")
+[2m2026-02-24T16:31:09.734771Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXSOL15M-26FEB241145-45 closes at ts=1771951500 (~13min remaining)
+[2m2026-02-24T16:31:09.734805Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Trying slug: sol-updown-15m-1771950600
+[2m2026-02-24T16:31:09.776508Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] ✅ Matched KXSOL15M-26FEB241145-45 [16:30 UTC-16:45 UTC] ↔ sol-updown-15m-1771950600 [16:30 UTC-16:45 UTC] (exp_ts=1771951500)
+[2m2026-02-24T16:31:09.776602Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXSOL15M [SOL-15m]: 1 Kalshi markets, 1 slug-matched
+[2m2026-02-24T16:31:10.230688Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXBTCUD [BTC-15m]: series not found or empty
+[2m2026-02-24T16:31:10.727040Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXETHUD [ETH-15m]: series not found or empty
+[2m2026-02-24T16:31:11.234101Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXSOLUD [SOL-15m]: series not found or empty
+[2m2026-02-24T16:31:11.748793Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXBTC1H [BTC-60m]: series not found or empty
+[2m2026-02-24T16:31:12.234398Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXETH1H [ETH-60m]: series not found or empty
+[2m2026-02-24T16:31:12.726415Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXSOL1H [SOL-60m]: series not found or empty
+[2m2026-02-24T16:31:12.726526Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] 🔄 Short-duration: 1 BTC-15m, 1 ETH-15m, 0 other matched | 0 Kalshi-only (no Poly match)
+[2m2026-02-24T16:31:12.726558Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 🆕 New ticker not in state (restart to track): KXBTC15M-26FEB241145-45
+[2m2026-02-24T16:31:12.726577Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 🆕 New ticker not in state (restart to track): KXETH15M-26FEB241145-45
+[2m2026-02-24T16:31:12.726592Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 🆕 New ticker not in state (restart to track): KXSOL15M-26FEB241145-45
+[2m2026-02-24T16:31:12.726605Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 3 total found | 0 still tracked | 3 new (need restart) | 0 Kalshi-only
+[2m2026-02-24T16:36:08.126273Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | PSG at Le Havre: Both Teams to Score - PSG at Le Havre: Both Teams to Score | spread=+2¢ | K_yes=55¢ K_no=53¢ P_yes=53¢
+[2m2026-02-24T16:36:08.126397Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Galatasaray at Juventus: Both Teams to Score - Galatasaray at Juventus: Both Teams to Score | spread=+0¢ | K_yes=61¢ K_no=41¢ P_yes=61¢
+[2m2026-02-24T16:36:08.126517Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Tottenham at Fulham: Totals - Tottenham at Fulham: Totals | spread=+0¢ | K_yes=20¢ K_no=89¢ P_yes=20¢
+[2m2026-02-24T16:36:08.126549Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+3¢ | K_yes=81¢ K_no=26¢ P_yes=78¢
+[2m2026-02-24T16:36:08.126566Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+1¢ | K_yes=55¢ K_no=48¢ P_yes=54¢
+[2m2026-02-24T16:36:08.126580Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Lecce at Como: Totals - Lecce at Como: Totals | spread=-1¢ | K_yes=48¢ K_no=54¢ P_yes=49¢
+[2m2026-02-24T16:36:08.126594Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Orlando at Los Angeles L: Total Points - Orlando at Los Angeles L: Total Points | spread=-1¢ | K_yes=57¢ K_no=44¢ P_yes=58¢
+[2m2026-02-24T16:36:08.126613Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+0¢ | K_yes=42¢ K_no=64¢ P_yes=42¢
+[2m2026-02-24T16:36:08.126630Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+1¢ | K_yes=21¢ K_no=82¢ P_yes=20¢
+[2m2026-02-24T16:36:08.126643Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=-1¢ | K_yes=29¢ K_no=77¢ P_yes=30¢
+[2m2026-02-24T16:36:08.126657Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=+0¢ | K_yes=60¢ K_no=44¢ P_yes=60¢
+[2m2026-02-24T16:36:08.126671Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Ethereum price range on Feb 27, 2026 at 5pm EST? — Ethereum price at Feb 27, 2026 at 5pm EST? | spread=+1¢ | K_yes=2¢ K_no=0¢ P_yes=1¢
+[2m2026-02-24T16:36:08.126688Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | US GDP growth in Q1 2026? — Will **real GDP** increase by more than 1.5% in Q1 2026? | spread=+82¢ | K_yes=86¢ K_no=17¢ P_yes=4¢
+[2m2026-02-24T16:41:08.129572Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 🔄 Running 10-minute short-duration refresh...
+[2m2026-02-24T16:41:08.129667Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] 🔍 Discovering short-duration crypto markets...
+[2m2026-02-24T16:41:08.129694Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Trying series: KXBTC15M, KXETH15M, KXSOL15M, KXBTCUD, KXETHUD, KXSOLUD, KXBTC1H, KXETH1H, KXSOL1H
+[2m2026-02-24T16:41:08.129591Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | PSG at Le Havre: Both Teams to Score - PSG at Le Havre: Both Teams to Score | spread=+2¢ | K_yes=55¢ K_no=53¢ P_yes=53¢
+[2m2026-02-24T16:41:08.129753Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Galatasaray at Juventus: Both Teams to Score - Galatasaray at Juventus: Both Teams to Score | spread=+0¢ | K_yes=61¢ K_no=41¢ P_yes=61¢
+[2m2026-02-24T16:41:08.129773Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Tottenham at Fulham: Totals - Tottenham at Fulham: Totals | spread=+0¢ | K_yes=20¢ K_no=89¢ P_yes=20¢
+[2m2026-02-24T16:41:08.129789Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+3¢ | K_yes=81¢ K_no=26¢ P_yes=78¢
+[2m2026-02-24T16:41:08.129803Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+1¢ | K_yes=55¢ K_no=48¢ P_yes=54¢
+[2m2026-02-24T16:41:08.129816Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Lecce at Como: Totals - Lecce at Como: Totals | spread=-1¢ | K_yes=48¢ K_no=54¢ P_yes=49¢
+[2m2026-02-24T16:41:08.129829Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Orlando at Los Angeles L: Total Points - Orlando at Los Angeles L: Total Points | spread=-1¢ | K_yes=57¢ K_no=44¢ P_yes=58¢
+[2m2026-02-24T16:41:08.129842Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+0¢ | K_yes=42¢ K_no=64¢ P_yes=42¢
+[2m2026-02-24T16:41:08.129855Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+1¢ | K_yes=21¢ K_no=82¢ P_yes=20¢
+[2m2026-02-24T16:41:08.129867Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=-1¢ | K_yes=29¢ K_no=77¢ P_yes=30¢
+[2m2026-02-24T16:41:08.129880Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=+0¢ | K_yes=60¢ K_no=44¢ P_yes=60¢
+[2m2026-02-24T16:41:08.129893Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Ethereum price range on Feb 27, 2026 at 5pm EST? — Ethereum price at Feb 27, 2026 at 5pm EST? | spread=+1¢ | K_yes=2¢ K_no=0¢ P_yes=1¢
+[2m2026-02-24T16:41:08.129908Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | US GDP growth in Q1 2026? — Will **real GDP** increase by more than 1.5% in Q1 2026? | spread=+82¢ | K_yes=86¢ K_no=17¢ P_yes=4¢
+[2m2026-02-24T16:41:08.350200Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   1 events in series KXBTC15M
+[2m2026-02-24T16:41:08.448118Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   KXBTC15M-26FEB241145 → 1 markets | e.g. Some("KXBTC15M-26FEB241145-45")
+[2m2026-02-24T16:41:08.448241Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Skipping KXBTC15M-26FEB241145-45 — closes in 232s (< 5min)
+[2m2026-02-24T16:41:08.448276Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXBTC15M [BTC-15m]: 1 Kalshi markets, 0 slug-matched
+[2m2026-02-24T16:41:08.567364Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   1 events in series KXETH15M
+[2m2026-02-24T16:41:08.739783Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   KXETH15M-26FEB241145 → 1 markets | e.g. Some("KXETH15M-26FEB241145-45")
+[2m2026-02-24T16:41:08.739915Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Skipping KXETH15M-26FEB241145-45 — closes in 232s (< 5min)
+[2m2026-02-24T16:41:08.739952Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXETH15M [ETH-15m]: 1 Kalshi markets, 0 slug-matched
+[2m2026-02-24T16:41:09.244114Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   1 events in series KXSOL15M
+[2m2026-02-24T16:41:09.743676Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   KXSOL15M-26FEB241145 → 1 markets | e.g. Some("KXSOL15M-26FEB241145-45")
+[2m2026-02-24T16:41:09.743788Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Skipping KXSOL15M-26FEB241145-45 — closes in 231s (< 5min)
+[2m2026-02-24T16:41:09.743820Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXSOL15M [SOL-15m]: 1 Kalshi markets, 0 slug-matched
+[2m2026-02-24T16:41:10.238777Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXBTCUD [BTC-15m]: series not found or empty
+[2m2026-02-24T16:41:10.748928Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXETHUD [ETH-15m]: series not found or empty
+[2m2026-02-24T16:41:11.236019Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXSOLUD [SOL-15m]: series not found or empty
+[2m2026-02-24T16:41:11.738020Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXBTC1H [BTC-60m]: series not found or empty
+[2m2026-02-24T16:41:12.238960Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXETH1H [ETH-60m]: series not found or empty
+[2m2026-02-24T16:41:12.736078Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXSOL1H [SOL-60m]: series not found or empty
+[2m2026-02-24T16:41:12.736158Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] 3 Kalshi-only tickers (no Poly slug match): KXBTC15M-26FEB241145-45, KXETH15M-26FEB241145-45, KXSOL15M-26FEB241145-45
+[2m2026-02-24T16:41:12.736185Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] 🔄 Short-duration: 0 BTC-15m, 0 ETH-15m, 0 other matched | 3 Kalshi-only (no Poly match)
+[2m2026-02-24T16:41:12.736204Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 0 total found | 0 still tracked | 0 new (need restart) | 3 Kalshi-only
+[2m2026-02-24T16:46:08.136218Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | PSG at Le Havre: Both Teams to Score - PSG at Le Havre: Both Teams to Score | spread=+2¢ | K_yes=55¢ K_no=53¢ P_yes=53¢
+[2m2026-02-24T16:46:08.136295Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Galatasaray at Juventus: Both Teams to Score - Galatasaray at Juventus: Both Teams to Score | spread=+0¢ | K_yes=61¢ K_no=41¢ P_yes=61¢
+[2m2026-02-24T16:46:08.136314Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Tottenham at Fulham: Totals - Tottenham at Fulham: Totals | spread=+0¢ | K_yes=20¢ K_no=89¢ P_yes=20¢
+[2m2026-02-24T16:46:08.136323Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+3¢ | K_yes=81¢ K_no=26¢ P_yes=78¢
+[2m2026-02-24T16:46:08.136331Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+1¢ | K_yes=55¢ K_no=48¢ P_yes=54¢
+[2m2026-02-24T16:46:08.136338Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Lecce at Como: Totals - Lecce at Como: Totals | spread=-1¢ | K_yes=48¢ K_no=54¢ P_yes=49¢
+[2m2026-02-24T16:46:08.136345Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Orlando at Los Angeles L: Total Points - Orlando at Los Angeles L: Total Points | spread=-1¢ | K_yes=57¢ K_no=44¢ P_yes=58¢
+[2m2026-02-24T16:46:08.136352Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+0¢ | K_yes=42¢ K_no=64¢ P_yes=42¢
+[2m2026-02-24T16:46:08.136389Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+1¢ | K_yes=21¢ K_no=82¢ P_yes=20¢
+[2m2026-02-24T16:46:08.136403Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=-1¢ | K_yes=29¢ K_no=77¢ P_yes=30¢
+[2m2026-02-24T16:46:08.136417Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=+0¢ | K_yes=60¢ K_no=44¢ P_yes=60¢
+[2m2026-02-24T16:46:08.136427Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Ethereum price range on Feb 27, 2026 at 5pm EST? — Ethereum price at Feb 27, 2026 at 5pm EST? | spread=+1¢ | K_yes=2¢ K_no=0¢ P_yes=1¢
+[2m2026-02-24T16:46:08.136438Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | US GDP growth in Q1 2026? — Will **real GDP** increase by more than 1.5% in Q1 2026? | spread=+82¢ | K_yes=86¢ K_no=17¢ P_yes=4¢
+[2m2026-02-24T16:51:08.141051Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | PSG at Le Havre: Both Teams to Score - PSG at Le Havre: Both Teams to Score | spread=+2¢ | K_yes=55¢ K_no=53¢ P_yes=53¢
+[2m2026-02-24T16:51:08.141181Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Galatasaray at Juventus: Both Teams to Score - Galatasaray at Juventus: Both Teams to Score | spread=+0¢ | K_yes=61¢ K_no=41¢ P_yes=61¢
+[2m2026-02-24T16:51:08.141224Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Tottenham at Fulham: Totals - Tottenham at Fulham: Totals | spread=+0¢ | K_yes=20¢ K_no=89¢ P_yes=20¢
+[2m2026-02-24T16:51:08.141259Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+3¢ | K_yes=81¢ K_no=26¢ P_yes=78¢
+[2m2026-02-24T16:51:08.141283Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+1¢ | K_yes=55¢ K_no=48¢ P_yes=54¢
+[2m2026-02-24T16:51:08.141302Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Lecce at Como: Totals - Lecce at Como: Totals | spread=-1¢ | K_yes=48¢ K_no=54¢ P_yes=49¢
+[2m2026-02-24T16:51:08.141321Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Orlando at Los Angeles L: Total Points - Orlando at Los Angeles L: Total Points | spread=-1¢ | K_yes=57¢ K_no=44¢ P_yes=58¢
+[2m2026-02-24T16:51:08.141340Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+0¢ | K_yes=42¢ K_no=64¢ P_yes=42¢
+[2m2026-02-24T16:51:08.141354Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+1¢ | K_yes=21¢ K_no=82¢ P_yes=20¢
+[2m2026-02-24T16:51:08.141372Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=-1¢ | K_yes=29¢ K_no=77¢ P_yes=30¢
+[2m2026-02-24T16:51:08.141071Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 🔄 Running 10-minute short-duration refresh...
+[2m2026-02-24T16:51:08.141387Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=+0¢ | K_yes=60¢ K_no=44¢ P_yes=60¢
+[2m2026-02-24T16:51:08.141433Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] 🔍 Discovering short-duration crypto markets...
+[2m2026-02-24T16:51:08.141473Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Ethereum price range on Feb 27, 2026 at 5pm EST? — Ethereum price at Feb 27, 2026 at 5pm EST? | spread=+1¢ | K_yes=2¢ K_no=0¢ P_yes=1¢
+[2m2026-02-24T16:51:08.141500Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Trying series: KXBTC15M, KXETH15M, KXSOL15M, KXBTCUD, KXETHUD, KXSOLUD, KXBTC1H, KXETH1H, KXSOL1H
+[2m2026-02-24T16:51:08.141530Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | US GDP growth in Q1 2026? — Will **real GDP** increase by more than 1.5% in Q1 2026? | spread=+82¢ | K_yes=86¢ K_no=17¢ P_yes=4¢
+[2m2026-02-24T16:51:08.360872Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   1 events in series KXBTC15M
+[2m2026-02-24T16:51:08.462044Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   KXBTC15M-26FEB241200 → 1 markets | e.g. Some("KXBTC15M-26FEB241200-00")
+[2m2026-02-24T16:51:08.462149Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXBTC15M-26FEB241200-00 closes at ts=1771952400 (~8min remaining)
+[2m2026-02-24T16:51:08.462180Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Trying slug: btc-updown-15m-1771951500
+[2m2026-02-24T16:51:08.621348Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] ✅ Matched KXBTC15M-26FEB241200-00 [16:45 UTC-17:00 UTC] ↔ btc-updown-15m-1771951500 [16:45 UTC-17:00 UTC] (exp_ts=1771952400)
+[2m2026-02-24T16:51:08.621422Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXBTC15M [BTC-15m]: 1 Kalshi markets, 1 slug-matched
+[2m2026-02-24T16:51:08.732919Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   1 events in series KXETH15M
+[2m2026-02-24T16:51:08.857107Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   KXETH15M-26FEB241200 → 1 markets | e.g. Some("KXETH15M-26FEB241200-00")
+[2m2026-02-24T16:51:08.857210Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXETH15M-26FEB241200-00 closes at ts=1771952400 (~8min remaining)
+[2m2026-02-24T16:51:08.857244Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Trying slug: eth-updown-15m-1771951500
+[2m2026-02-24T16:51:08.912044Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] ✅ Matched KXETH15M-26FEB241200-00 [16:45 UTC-17:00 UTC] ↔ eth-updown-15m-1771951500 [16:45 UTC-17:00 UTC] (exp_ts=1771952400)
+[2m2026-02-24T16:51:08.912159Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXETH15M [ETH-15m]: 1 Kalshi markets, 1 slug-matched
+[2m2026-02-24T16:51:09.250878Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   1 events in series KXSOL15M
+[2m2026-02-24T16:51:09.782351Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   KXSOL15M-26FEB241200 → 1 markets | e.g. Some("KXSOL15M-26FEB241200-00")
+[2m2026-02-24T16:51:09.782459Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXSOL15M-26FEB241200-00 closes at ts=1771952400 (~8min remaining)
+[2m2026-02-24T16:51:09.782491Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Trying slug: sol-updown-15m-1771951500
+[2m2026-02-24T16:51:09.821874Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] ✅ Matched KXSOL15M-26FEB241200-00 [16:45 UTC-17:00 UTC] ↔ sol-updown-15m-1771951500 [16:45 UTC-17:00 UTC] (exp_ts=1771952400)
+[2m2026-02-24T16:51:09.821965Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXSOL15M [SOL-15m]: 1 Kalshi markets, 1 slug-matched
+[2m2026-02-24T16:51:10.247006Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXBTCUD [BTC-15m]: series not found or empty
+[2m2026-02-24T16:51:10.756603Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXETHUD [ETH-15m]: series not found or empty
+[2m2026-02-24T16:51:11.254653Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXSOLUD [SOL-15m]: series not found or empty
+[2m2026-02-24T16:51:11.756163Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXBTC1H [BTC-60m]: series not found or empty
+[2m2026-02-24T16:51:12.254048Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXETH1H [ETH-60m]: series not found or empty
+[2m2026-02-24T16:51:12.753013Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXSOL1H [SOL-60m]: series not found or empty
+[2m2026-02-24T16:51:12.753119Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] 🔄 Short-duration: 1 BTC-15m, 1 ETH-15m, 0 other matched | 0 Kalshi-only (no Poly match)
+[2m2026-02-24T16:51:12.753155Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 🆕 New ticker not in state (restart to track): KXBTC15M-26FEB241200-00
+[2m2026-02-24T16:51:12.753176Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 🆕 New ticker not in state (restart to track): KXETH15M-26FEB241200-00
+[2m2026-02-24T16:51:12.753191Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 🆕 New ticker not in state (restart to track): KXSOL15M-26FEB241200-00
+[2m2026-02-24T16:51:12.753205Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 3 total found | 0 still tracked | 3 new (need restart) | 0 Kalshi-only
+[2m2026-02-24T16:56:08.146193Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | PSG at Le Havre: Both Teams to Score - PSG at Le Havre: Both Teams to Score | spread=+2¢ | K_yes=55¢ K_no=53¢ P_yes=53¢
+[2m2026-02-24T16:56:08.146298Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Galatasaray at Juventus: Both Teams to Score - Galatasaray at Juventus: Both Teams to Score | spread=+0¢ | K_yes=61¢ K_no=41¢ P_yes=61¢
+[2m2026-02-24T16:56:08.146327Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Tottenham at Fulham: Totals - Tottenham at Fulham: Totals | spread=+0¢ | K_yes=20¢ K_no=89¢ P_yes=20¢
+[2m2026-02-24T16:56:08.146346Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+3¢ | K_yes=81¢ K_no=26¢ P_yes=78¢
+[2m2026-02-24T16:56:08.146361Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+1¢ | K_yes=55¢ K_no=48¢ P_yes=54¢
+[2m2026-02-24T16:56:08.146376Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Lecce at Como: Totals - Lecce at Como: Totals | spread=-1¢ | K_yes=48¢ K_no=54¢ P_yes=49¢
+[2m2026-02-24T16:56:08.146390Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Orlando at Los Angeles L: Total Points - Orlando at Los Angeles L: Total Points | spread=-1¢ | K_yes=57¢ K_no=44¢ P_yes=58¢
+[2m2026-02-24T16:56:08.146404Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+0¢ | K_yes=42¢ K_no=64¢ P_yes=42¢
+[2m2026-02-24T16:56:08.146419Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+1¢ | K_yes=21¢ K_no=82¢ P_yes=20¢
+[2m2026-02-24T16:56:08.146432Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=-1¢ | K_yes=29¢ K_no=77¢ P_yes=30¢
+[2m2026-02-24T16:56:08.146446Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=+0¢ | K_yes=60¢ K_no=44¢ P_yes=60¢
+[2m2026-02-24T16:56:08.146459Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Ethereum price range on Feb 27, 2026 at 5pm EST? — Ethereum price at Feb 27, 2026 at 5pm EST? | spread=+1¢ | K_yes=2¢ K_no=0¢ P_yes=1¢
+[2m2026-02-24T16:56:08.146477Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | US GDP growth in Q1 2026? — Will **real GDP** increase by more than 1.5% in Q1 2026? | spread=+82¢ | K_yes=86¢ K_no=17¢ P_yes=4¢
+[2m2026-02-24T17:01:08.116838Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 🔄 Running 10-minute short-duration refresh...
+[2m2026-02-24T17:01:08.116956Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] 🔍 Discovering short-duration crypto markets...
+[2m2026-02-24T17:01:08.116994Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Trying series: KXBTC15M, KXETH15M, KXSOL15M, KXBTCUD, KXETHUD, KXSOLUD, KXBTC1H, KXETH1H, KXSOL1H
+[2m2026-02-24T17:01:08.116856Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | PSG at Le Havre: Both Teams to Score - PSG at Le Havre: Both Teams to Score | spread=+2¢ | K_yes=55¢ K_no=53¢ P_yes=53¢
+[2m2026-02-24T17:01:08.117067Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Galatasaray at Juventus: Both Teams to Score - Galatasaray at Juventus: Both Teams to Score | spread=+0¢ | K_yes=61¢ K_no=41¢ P_yes=61¢
+[2m2026-02-24T17:01:08.117090Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Tottenham at Fulham: Totals - Tottenham at Fulham: Totals | spread=+0¢ | K_yes=20¢ K_no=89¢ P_yes=20¢
+[2m2026-02-24T17:01:08.117106Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+3¢ | K_yes=81¢ K_no=26¢ P_yes=78¢
+[2m2026-02-24T17:01:08.117121Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+1¢ | K_yes=55¢ K_no=48¢ P_yes=54¢
+[2m2026-02-24T17:01:08.117136Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Lecce at Como: Totals - Lecce at Como: Totals | spread=-1¢ | K_yes=48¢ K_no=54¢ P_yes=49¢
+[2m2026-02-24T17:01:08.117151Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Orlando at Los Angeles L: Total Points - Orlando at Los Angeles L: Total Points | spread=-1¢ | K_yes=57¢ K_no=44¢ P_yes=58¢
+[2m2026-02-24T17:01:08.117165Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+0¢ | K_yes=42¢ K_no=64¢ P_yes=42¢
+[2m2026-02-24T17:01:08.117180Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+1¢ | K_yes=21¢ K_no=82¢ P_yes=20¢
+[2m2026-02-24T17:01:08.117193Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=-1¢ | K_yes=29¢ K_no=77¢ P_yes=30¢
+[2m2026-02-24T17:01:08.117207Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=+0¢ | K_yes=60¢ K_no=44¢ P_yes=60¢
+[2m2026-02-24T17:01:08.117221Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Ethereum price range on Feb 27, 2026 at 5pm EST? — Ethereum price at Feb 27, 2026 at 5pm EST? | spread=+1¢ | K_yes=2¢ K_no=0¢ P_yes=1¢
+[2m2026-02-24T17:01:08.117238Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | US GDP growth in Q1 2026? — Will **real GDP** increase by more than 1.5% in Q1 2026? | spread=+82¢ | K_yes=86¢ K_no=17¢ P_yes=4¢
+[2m2026-02-24T17:01:08.333962Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   1 events in series KXBTC15M
+[2m2026-02-24T17:01:08.437957Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   KXBTC15M-26FEB241215 → 1 markets | e.g. Some("KXBTC15M-26FEB241215-15")
+[2m2026-02-24T17:01:08.438073Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXBTC15M-26FEB241215-15 closes at ts=1771953300 (~13min remaining)
+[2m2026-02-24T17:01:08.438106Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Trying slug: btc-updown-15m-1771952400
+[2m2026-02-24T17:01:08.596925Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] ✅ Matched KXBTC15M-26FEB241215-15 [17:00 UTC-17:15 UTC] ↔ btc-updown-15m-1771952400 [17:00 UTC-17:15 UTC] (exp_ts=1771953300)
+[2m2026-02-24T17:01:08.597003Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXBTC15M [BTC-15m]: 1 Kalshi markets, 1 slug-matched
+[2m2026-02-24T17:01:08.712853Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   1 events in series KXETH15M
+[2m2026-02-24T17:01:08.825343Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   KXETH15M-26FEB241215 → 1 markets | e.g. Some("KXETH15M-26FEB241215-15")
+[2m2026-02-24T17:01:08.825459Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXETH15M-26FEB241215-15 closes at ts=1771953300 (~13min remaining)
+[2m2026-02-24T17:01:08.825490Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Trying slug: eth-updown-15m-1771952400
+[2m2026-02-24T17:01:08.868339Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] ✅ Matched KXETH15M-26FEB241215-15 [17:00 UTC-17:15 UTC] ↔ eth-updown-15m-1771952400 [17:00 UTC-17:15 UTC] (exp_ts=1771953300)
+[2m2026-02-24T17:01:08.868439Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXETH15M [ETH-15m]: 1 Kalshi markets, 1 slug-matched
+[2m2026-02-24T17:01:09.225006Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   1 events in series KXSOL15M
+[2m2026-02-24T17:01:09.735428Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO]   KXSOL15M-26FEB241215 → 1 markets | e.g. Some("KXSOL15M-26FEB241215-15")
+[2m2026-02-24T17:01:09.735533Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXSOL15M-26FEB241215-15 closes at ts=1771953300 (~13min remaining)
+[2m2026-02-24T17:01:09.735564Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] Trying slug: sol-updown-15m-1771952400
+[2m2026-02-24T17:01:09.805717Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] ✅ Matched KXSOL15M-26FEB241215-15 [17:00 UTC-17:15 UTC] ↔ sol-updown-15m-1771952400 [17:00 UTC-17:15 UTC] (exp_ts=1771953300)
+[2m2026-02-24T17:01:09.805834Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXSOL15M [SOL-15m]: 1 Kalshi markets, 1 slug-matched
+[2m2026-02-24T17:01:10.226788Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXBTCUD [BTC-15m]: series not found or empty
+[2m2026-02-24T17:01:10.729438Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXETHUD [ETH-15m]: series not found or empty
+[2m2026-02-24T17:01:11.227405Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXSOLUD [SOL-15m]: series not found or empty
+[2m2026-02-24T17:01:11.734283Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXBTC1H [BTC-60m]: series not found or empty
+[2m2026-02-24T17:01:12.225669Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXETH1H [ETH-60m]: series not found or empty
+[2m2026-02-24T17:01:12.723268Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] KXSOL1H [SOL-60m]: series not found or empty
+[2m2026-02-24T17:01:12.723382Z[0m [32m INFO[0m [2mame_bot::discovery[0m[2m:[0m [SHORT-CRYPTO] 🔄 Short-duration: 1 BTC-15m, 1 ETH-15m, 0 other matched | 0 Kalshi-only (no Poly match)
+[2m2026-02-24T17:01:12.723420Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 🆕 New ticker not in state (restart to track): KXBTC15M-26FEB241215-15
+[2m2026-02-24T17:01:12.723440Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 🆕 New ticker not in state (restart to track): KXETH15M-26FEB241215-15
+[2m2026-02-24T17:01:12.723455Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 🆕 New ticker not in state (restart to track): KXSOL15M-26FEB241215-15
+[2m2026-02-24T17:01:12.723467Z[0m [32m INFO[0m [2msignal_trader[0m[2m:[0m [SHORT-REFRESH] 3 total found | 0 still tracked | 3 new (need restart) | 0 Kalshi-only
+[2m2026-02-24T17:06:08.121365Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | PSG at Le Havre: Both Teams to Score - PSG at Le Havre: Both Teams to Score | spread=+2¢ | K_yes=55¢ K_no=53¢ P_yes=53¢
+[2m2026-02-24T17:06:08.121479Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Galatasaray at Juventus: Both Teams to Score - Galatasaray at Juventus: Both Teams to Score | spread=+0¢ | K_yes=61¢ K_no=41¢ P_yes=61¢
+[2m2026-02-24T17:06:08.121505Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Tottenham at Fulham: Totals - Tottenham at Fulham: Totals | spread=+0¢ | K_yes=20¢ K_no=89¢ P_yes=20¢
+[2m2026-02-24T17:06:08.121522Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+3¢ | K_yes=81¢ K_no=26¢ P_yes=78¢
+[2m2026-02-24T17:06:08.121538Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Sunderland at Bournemouth: Totals - Sunderland at Bournemouth: Totals | spread=+1¢ | K_yes=55¢ K_no=48¢ P_yes=54¢
+[2m2026-02-24T17:06:08.121551Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Lecce at Como: Totals - Lecce at Como: Totals | spread=-1¢ | K_yes=48¢ K_no=54¢ P_yes=49¢
+[2m2026-02-24T17:06:08.121564Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Orlando at Los Angeles L: Total Points - Orlando at Los Angeles L: Total Points | spread=-1¢ | K_yes=57¢ K_no=44¢ P_yes=58¢
+[2m2026-02-24T17:06:08.121577Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+0¢ | K_yes=42¢ K_no=64¢ P_yes=42¢
+[2m2026-02-24T17:06:08.121589Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Seattle at Dallas: Total Points - Seattle vs Dallas: Total Goals | spread=+1¢ | K_yes=21¢ K_no=82¢ P_yes=20¢
+[2m2026-02-24T17:06:08.121602Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=-1¢ | K_yes=29¢ K_no=77¢ P_yes=30¢
+[2m2026-02-24T17:06:08.121616Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Philadelphia at Washington: Total Points - Philadelphia vs Washington: Total Goals | spread=+0¢ | K_yes=60¢ K_no=44¢ P_yes=60¢
+[2m2026-02-24T17:06:08.121628Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | Ethereum price range on Feb 27, 2026 at 5pm EST? — Ethereum price at Feb 27, 2026 at 5pm EST? | spread=+1¢ | K_yes=2¢ K_no=0¢ P_yes=1¢
+[2m2026-02-24T17:06:08.121644Z[0m [32m INFO[0m [2mame_bot::signal_trader[0m[2m:[0m [SIGNAL] SPREAD | US GDP growth in Q1 2026? — Will **real GDP** increase by more than 1.5% in Q1 2026? | spread=+82¢ | K_yes=86¢ K_no=17¢ P_yes=4¢

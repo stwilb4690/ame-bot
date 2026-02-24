@@ -1,54 +1,97 @@
-[2m2026-02-24T16:21:35.983662Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m 🏦 AME Market Maker v2.0.0
-[2m2026-02-24T16:21:35.983922Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m    Env: prod
-[2m2026-02-24T16:21:35.983992Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m    Kalshi API: https://api.elections.kalshi.com/trade-api/v2
-[2m2026-02-24T16:21:35.984034Z[0m [33m WARN[0m [2mmarket_maker[0m[2m:[0m    [LIVE] live Kalshi orders ENABLED
-[2m2026-02-24T16:21:35.984043Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m    min_spread=5¢  min_net_spread=2¢  bid_offset=+1¢  ask_offset=-1¢  order_size=15  max_positions=3  daily_limit=$15.00
-[2m2026-02-24T16:21:35.984582Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [KALSHI] API key loaded
-[2m2026-02-24T16:21:36.193027Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [KALSHI] Balance: $121.12
-[2m2026-02-24T16:21:36.193173Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [TELEGRAM] Configured
-[2m2026-02-24T16:21:36.193197Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] Discovering sports markets...
-[2m2026-02-24T16:21:36.193211Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Fetching 45 series in parallel (max 5 concurrent, 5s timeout each)
-[2m2026-02-24T16:21:58.056415Z[0m [33m WARN[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Series KXUELGAME timed out — skipping
-[2m2026-02-24T16:22:14.770055Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Discovered 734 live markets (1351 fetched across 45 series)
-[2m2026-02-24T16:22:14.770957Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] 15s warmup — waiting for order book snapshots
-[2m2026-02-24T16:22:14.771011Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] Running. Press Ctrl+C to stop.
-[2m2026-02-24T16:22:14.772057Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] HEARTBEAT | mode=live pnl=0.00 positions=0 trades=0 books=0 uptime=0s
-[2m2026-02-24T16:22:14.981795Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Connected (734  tickers)
-[2m2026-02-24T16:22:14.982280Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Subscribed to orderbook_delta + user_orders
-[2m2026-02-24T16:22:15.038366Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Control msg: {"type":"subscribed","id":2,"msg":{"channel":"user_orders","sid":1}}
+[2m2026-02-24T17:05:57.042263Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m 🏦 AME Market Maker v2.0.0
+[2m2026-02-24T17:05:57.042498Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m    Env: prod
+[2m2026-02-24T17:05:57.042560Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m    Kalshi API: https://api.elections.kalshi.com/trade-api/v2
+[2m2026-02-24T17:05:57.042600Z[0m [33m WARN[0m [2mmarket_maker[0m[2m:[0m    [LIVE] live Kalshi orders ENABLED
+[2m2026-02-24T17:05:57.042610Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m    min_spread=5¢  min_net_spread=2¢  bid_offset=+1¢  ask_offset=-1¢  order_size=15  max_positions=3  daily_limit=$15.00
+[2m2026-02-24T17:05:57.043278Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [KALSHI] API key loaded
+[2m2026-02-24T17:05:57.301776Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [KALSHI] Balance: $168.08
+[2m2026-02-24T17:05:57.301994Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [TELEGRAM] Configured
+[2m2026-02-24T17:05:57.302030Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] Discovering sports markets...
+[2m2026-02-24T17:05:57.302054Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Fetching 45 series in parallel (max 5 concurrent, 5s timeout each)
+[2m2026-02-24T17:06:19.186047Z[0m [33m WARN[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Series KXUCLTOTAL timed out — skipping
+[2m2026-02-24T17:06:36.762597Z[0m [33m WARN[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Series KXNCAAFSPREAD timed out — skipping
+[2m2026-02-24T17:06:36.762710Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Discovered 734 live markets (1343 fetched across 45 series)
+[2m2026-02-24T17:06:36.763437Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] 15s warmup — waiting for order book snapshots
+[2m2026-02-24T17:06:36.763503Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] Running. Press Ctrl+C to stop.
+[2m2026-02-24T17:06:36.764663Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] HEARTBEAT | mode=live pnl=0.00 positions=0 trades=0 books=0 uptime=0s
+[2m2026-02-24T17:06:36.932571Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Connected (734  tickers)
+[2m2026-02-24T17:06:36.932998Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Subscribed to orderbook_delta + user_orders
+[2m2026-02-24T17:06:36.989764Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Control msg: {"type":"subscribed","id":2,"msg":{"channel":"user_orders","sid":1}}
 
-[2m2026-02-24T16:22:15.038443Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Control msg: {"type":"subscribed","id":1,"msg":{"channel":"orderbook_delta","sid":2}}
+[2m2026-02-24T17:06:36.992844Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Control msg: {"type":"subscribed","id":1,"msg":{"channel":"orderbook_delta","sid":2}}
 
-[2m2026-02-24T16:22:29.774382Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] Starting scan loop (2s cadence)
-[2m2026-02-24T16:22:29.775914Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXUCLSPREAD-26FEB24NEWQAR-NEW1 spread=9¢ score=11250 (boost=10.0x, active 10s ago)
-[2m2026-02-24T16:22:29.816041Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXUCLSPREAD-26FEB24NEWQAR-NEW1 YES | buy=65¢ sell=72¢ spread=9¢ size=15 | order_id=61d4a69d-1f2a-4049-bdff-8c13927fe130
-[2m2026-02-24T16:22:29.816157Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBATOTAL-26FEB24PHIIND-246 spread=9¢ score=10800 (boost=10.0x, active 1s ago)
-[2m2026-02-24T16:22:29.863304Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXNBATOTAL-26FEB24PHIIND-246 YES | buy=21¢ sell=28¢ spread=9¢ size=15 | order_id=4d2a92ae-72f8-469b-b0ca-6c11b28aac42
-[2m2026-02-24T16:22:29.863411Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBATOTAL-26FEB24CHACHI-219 spread=6¢ score=7200 (boost=10.0x, active 0s ago)
-[2m2026-02-24T16:22:29.906783Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXNBATOTAL-26FEB24CHACHI-219 YES | buy=75¢ sell=79¢ spread=6¢ size=15 | order_id=4a173df7-ecc0-4821-85ec-e9b5a750759d
-[2m2026-02-24T16:22:29.906897Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLSPREAD-26MAR01ARSCFC-ARS2 spread=8¢ score=3840 (boost=10.0x, active 14s ago)
-[2m2026-02-24T16:22:29.948254Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXEPLSPREAD-26MAR01ARSCFC-ARS2 NO | buy=80¢ sell=86¢ spread=8¢ size=15 | order_id=1fd3d5c1-df7a-471a-aa6e-1b3fec2046f3
-[2m2026-02-24T16:22:29.948393Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXMLSGAME-26FEB28RSLSEA-TIE spread=8¢ score=2240 (boost=10.0x, active 8s ago)
-[2m2026-02-24T16:22:29.992919Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXMLSGAME-26FEB28RSLSEA-TIE YES | buy=25¢ sell=31¢ spread=8¢ size=15 | order_id=06ce4ccf-0f32-4adc-9b82-70ac6cf13b00
-[2m2026-02-24T16:22:29.993015Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXMLSGAME-26FEB28SJATL-TIE spread=5¢ score=1750 (boost=10.0x, active 5s ago)
-[2m2026-02-24T16:22:30.036300Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXMLSGAME-26FEB28SJATL-TIE YES | buy=22¢ sell=25¢ spread=5¢ size=15 | order_id=00b0c9ab-763b-4156-9326-fdf7af33ab20
-[2m2026-02-24T16:22:31.777416Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBAGAME-26FEB24PHIIND-IND spread=5¢ score=61250 (boost=10.0x, active 1s ago)
-[2m2026-02-24T16:22:31.828245Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXNBAGAME-26FEB24PHIIND-IND YES | buy=20¢ sell=23¢ spread=5¢ size=15 | order_id=458ce0cd-1f9d-4176-b902-c1189987bfaa
-[2m2026-02-24T16:22:31.828348Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBASPREAD-26FEB24MINPOR-MIN20 spread=5¢ score=3750 (boost=10.0x, active 1s ago)
-[2m2026-02-24T16:22:31.887679Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXNBASPREAD-26FEB24MINPOR-MIN20 NO | buy=85¢ sell=88¢ spread=5¢ size=15 | order_id=8014017c-7d20-494b-8f64-a1e936543ad4
-[2m2026-02-24T16:22:31.887789Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXMLSGAME-26MAR01PHINYC-NYC spread=5¢ score=550 (boost=10.0x, active 16s ago)
-[2m2026-02-24T16:22:31.929216Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXMLSGAME-26MAR01PHINYC-NYC YES | buy=19¢ sell=22¢ spread=5¢ size=15 | order_id=3cfe9963-0773-48df-816e-18f15710e1ec
-[2m2026-02-24T16:22:31.929319Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLGAME-26MAR04NEWMUN-NEW spread=6¢ score=420 (boost=10.0x, active 14s ago)
-[2m2026-02-24T16:22:31.995770Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXEPLGAME-26MAR04NEWMUN-NEW YES | buy=40¢ sell=44¢ spread=6¢ size=15 | order_id=88227c56-f725-4996-ad56-f6e2f87bb6bd
-[2m2026-02-24T16:22:33.776932Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXSOL15M-26FEB241130-30 spread=5¢ score=1000 (boost=10.0x, active 0s ago)
-[2m2026-02-24T16:22:33.821846Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXSOL15M-26FEB241130-30 YES | buy=45¢ sell=48¢ spread=5¢ size=15 | order_id=b073a6a0-ce87-43cf-bf49-bf0b4fe18215
-[2m2026-02-24T16:22:33.821962Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXETH15M-26FEB241130-30 spread=8¢ score=80 (boost=10.0x, active 0s ago)
-[2m2026-02-24T16:22:33.861143Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXETH15M-26FEB241130-30 NO | buy=79¢ sell=85¢ spread=8¢ size=15 | order_id=53192e1d-8a25-40ba-affb-15173972e1c7
-[2m2026-02-24T16:22:35.776893Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEFLCHAMPIONSHIPGAME-26FEB24WBACHA-CHA spread=6¢ score=120840 (boost=10.0x, active 0s ago)
-[2m2026-02-24T16:22:35.840281Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXEFLCHAMPIONSHIPGAME-26FEB24WBACHA-CHA YES | buy=21¢ sell=25¢ spread=6¢ size=15 | order_id=6f9baaed-5ad9-416f-989c-ef9fc8bd9fbb
-[2m2026-02-24T16:22:35.840382Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXBTC15M-26FEB241130-30 spread=5¢ score=50 (boost=10.0x, active 0s ago)
-[2m2026-02-24T16:22:35.886361Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXBTC15M-26FEB241130-30 YES | buy=19¢ sell=22¢ spread=5¢ size=15 | order_id=54ec34e8-cc56-4adc-899f-08147c7ddaac
-[2m2026-02-24T16:22:41.776759Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBAGAME-26FEB24OKCTOR-OKC spread=7¢ score=348740 (boost=10.0x, active 1s ago)
-[2m2026-02-24T16:22:41.815168Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXNBAGAME-26FEB24OKCTOR-OKC YES | buy=47¢ sell=52¢ spread=7¢ size=15 | order_id=8c0ee549-cccf-4130-bab4-9c06fe3dee75
-[2m2026-02-24T16:22:41.815277Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXUCLTOTAL-26FEB24ATMBRU-3 spread=5¢ score=400 (boost=10.0x, active 0s ago)
-[2m2026-02-24T16:22:41.856436Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXUCLTOTAL-26FEB24ATMBRU-3 YES | buy=43¢ sell=46¢ spread=5¢ size=15 | order_id=f1fb6fa5-51b5-4a05-8ec6-26ea2d752e58
+[2m2026-02-24T17:06:51.764540Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] Starting scan loop (2s cadence)
+[2m2026-02-24T17:06:51.766148Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBATOTAL-26FEB24GSWNOP-240 spread=7¢ score=17500 (boost=10.0x, active 14s ago)
+[2m2026-02-24T17:06:51.811996Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXNBATOTAL-26FEB24GSWNOP-240 YES | buy=23¢ sell=28¢ spread=7¢ size=15 | order_id=6c487956-fc0e-4133-9650-5dc983dc5ea6
+[2m2026-02-24T17:06:51.812120Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNHLGAME-26FEB25VGKLA-LA spread=6¢ score=15000 (boost=10.0x, active 0s ago)
+[2m2026-02-24T17:06:51.848616Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXNHLGAME-26FEB25VGKLA-LA YES | buy=52¢ sell=56¢ spread=6¢ size=15 | order_id=8759f549-3c0c-4fd7-b6e0-bed284257b5b
+[2m2026-02-24T17:06:51.848721Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBASPREAD-26FEB24WASATL-ATL5 spread=5¢ score=4650 (boost=10.0x, active 14s ago)
+[2m2026-02-24T17:06:51.890229Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXNBASPREAD-26FEB24WASATL-ATL5 YES | buy=72¢ sell=75¢ spread=5¢ size=15 | order_id=91c71b0e-e909-46d6-8c82-d6fd49129347
+[2m2026-02-24T17:06:51.890341Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXSOL15M-26FEB241215-15 spread=5¢ score=1800 (boost=10.0x, active 0s ago)
+[2m2026-02-24T17:06:51.890412Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXSOL15M-26FEB241215-15 — exposure $31.20 would exceed $30.00 limit
+[2m2026-02-24T17:06:51.890431Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXSOL15M-26FEB241215-15 spread=5¢ score=1800 (boost=10.0x, active 0s ago)
+[2m2026-02-24T17:06:51.937698Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXSOL15M-26FEB241215-15 NO | buy=36¢ sell=39¢ spread=5¢ size=15 | order_id=b9f283e4-966f-4083-b26c-3f50898bfacc
+[2m2026-02-24T17:06:51.937782Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLGAME-26MAR03BOUBRE-BRE spread=5¢ score=250 (boost=10.0x, active 2s ago)
+[2m2026-02-24T17:06:51.937811Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXEPLGAME-26MAR03BOUBRE-BRE — exposure $32.25 would exceed $30.00 limit
+[2m2026-02-24T17:06:51.937827Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLGAME-26MAR03BOUBRE-BRE spread=5¢ score=250 (boost=10.0x, active 2s ago)
+[2m2026-02-24T17:06:51.937840Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXEPLGAME-26MAR03BOUBRE-BRE — exposure $37.20 would exceed $30.00 limit
+[2m2026-02-24T17:06:53.767676Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLGAME-26MAR03BOUBRE-BRE spread=6¢ score=240 (boost=10.0x, active 1s ago)
+[2m2026-02-24T17:06:53.767775Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXEPLGAME-26MAR03BOUBRE-BRE — exposure $32.25 would exceed $30.00 limit
+[2m2026-02-24T17:06:53.767839Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLGAME-26MAR03BOUBRE-BRE spread=6¢ score=240 (boost=10.0x, active 1s ago)
+[2m2026-02-24T17:06:53.767868Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXEPLGAME-26MAR03BOUBRE-BRE — exposure $37.05 would exceed $30.00 limit
+[2m2026-02-24T17:06:55.767472Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXETH15M-26FEB241215-15 spread=6¢ score=6000 (boost=10.0x, active 0s ago)
+[2m2026-02-24T17:06:55.767567Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXETH15M-26FEB241215-15 — exposure $37.95 would exceed $30.00 limit
+[2m2026-02-24T17:06:55.767589Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXETH15M-26FEB241215-15 spread=6¢ score=6000 (boost=10.0x, active 0s ago)
+[2m2026-02-24T17:06:55.767602Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXETH15M-26FEB241215-15 — exposure $31.35 would exceed $30.00 limit
+[2m2026-02-24T17:06:55.767615Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLGAME-26MAR03BOUBRE-BRE spread=5¢ score=250 (boost=10.0x, active 1s ago)
+[2m2026-02-24T17:06:55.767627Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXEPLGAME-26MAR03BOUBRE-BRE — exposure $32.25 would exceed $30.00 limit
+[2m2026-02-24T17:06:55.767639Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLGAME-26MAR03BOUBRE-BRE spread=5¢ score=250 (boost=10.0x, active 1s ago)
+[2m2026-02-24T17:06:55.767649Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXEPLGAME-26MAR03BOUBRE-BRE — exposure $37.20 would exceed $30.00 limit
+[2m2026-02-24T17:06:57.765671Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXETH15M-26FEB241215-15 spread=11¢ score=2200 (boost=10.0x, active 0s ago)
+[2m2026-02-24T17:06:57.765773Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXETH15M-26FEB241215-15 — exposure $37.05 would exceed $30.00 limit
+[2m2026-02-24T17:06:57.765821Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXETH15M-26FEB241215-15 spread=11¢ score=2200 (boost=10.0x, active 0s ago)
+[2m2026-02-24T17:06:57.765858Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXETH15M-26FEB241215-15 — exposure $31.80 would exceed $30.00 limit
+[2m2026-02-24T17:06:57.765923Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLGAME-26MAR03BOUBRE-BRE spread=6¢ score=240 (boost=10.0x, active 0s ago)
+[2m2026-02-24T17:06:57.765939Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXEPLGAME-26MAR03BOUBRE-BRE — exposure $32.25 would exceed $30.00 limit
+[2m2026-02-24T17:06:57.765953Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLGAME-26MAR03BOUBRE-BRE spread=6¢ score=240 (boost=10.0x, active 0s ago)
+[2m2026-02-24T17:06:57.765965Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXEPLGAME-26MAR03BOUBRE-BRE — exposure $37.05 would exceed $30.00 limit
+[2m2026-02-24T17:06:59.767550Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXETH15M-26FEB241215-15 spread=10¢ score=2000 (boost=10.0x, active 0s ago)
+[2m2026-02-24T17:06:59.767665Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXETH15M-26FEB241215-15 — exposure $37.20 would exceed $30.00 limit
+[2m2026-02-24T17:06:59.767694Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXETH15M-26FEB241215-15 spread=10¢ score=2000 (boost=10.0x, active 0s ago)
+[2m2026-02-24T17:06:59.767712Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXETH15M-26FEB241215-15 — exposure $31.80 would exceed $30.00 limit
+[2m2026-02-24T17:06:59.767730Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXBTC15M-26FEB241215-15 spread=5¢ score=1250 (boost=10.0x, active 0s ago)
+[2m2026-02-24T17:06:59.767746Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXBTC15M-26FEB241215-15 — exposure $37.35 would exceed $30.00 limit
+[2m2026-02-24T17:06:59.767760Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXBTC15M-26FEB241215-15 spread=5¢ score=1250 (boost=10.0x, active 0s ago)
+[2m2026-02-24T17:06:59.767775Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXBTC15M-26FEB241215-15 — exposure $32.10 would exceed $30.00 limit
+[2m2026-02-24T17:06:59.767789Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLGAME-26MAR03BOUBRE-BRE spread=5¢ score=250 (boost=10.0x, active 1s ago)
+[2m2026-02-24T17:06:59.767804Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXEPLGAME-26MAR03BOUBRE-BRE — exposure $32.25 would exceed $30.00 limit
+[2m2026-02-24T17:06:59.767819Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLGAME-26MAR03BOUBRE-BRE spread=5¢ score=250 (boost=10.0x, active 1s ago)
+[2m2026-02-24T17:06:59.767833Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXEPLGAME-26MAR03BOUBRE-BRE — exposure $37.20 would exceed $30.00 limit
+[2m2026-02-24T17:07:01.766978Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBATOTAL-26FEB24OKCTOR-232 spread=8¢ score=63360 (boost=10.0x, active 24s ago)
+[2m2026-02-24T17:07:01.767063Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXNBATOTAL-26FEB24OKCTOR-232 — exposure $39.30 would exceed $30.00 limit
+[2m2026-02-24T17:07:01.767117Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBATOTAL-26FEB24BOSPHX-214 spread=8¢ score=48000 (boost=10.0x, active 1s ago)
+[2m2026-02-24T17:07:01.767137Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXNBATOTAL-26FEB24BOSPHX-214 — exposure $31.80 would exceed $30.00 limit
+[2m2026-02-24T17:07:01.767155Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBATOTAL-26FEB24BOSPHX-214 spread=8¢ score=48000 (boost=10.0x, active 1s ago)
+[2m2026-02-24T17:07:01.767171Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXNBATOTAL-26FEB24BOSPHX-214 — exposure $37.20 would exceed $30.00 limit
+[2m2026-02-24T17:07:01.767188Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBATOTAL-26FEB24BOSPHX-220 spread=7¢ score=20370 (boost=10.0x, active 24s ago)
+[2m2026-02-24T17:07:01.767226Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXNBATOTAL-26FEB24BOSPHX-220 — exposure $30.45 would exceed $30.00 limit
+[2m2026-02-24T17:07:01.767241Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBATOTAL-26FEB24BOSPHX-220 spread=7¢ score=20370 (boost=10.0x, active 24s ago)
+[2m2026-02-24T17:07:01.767252Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXNBATOTAL-26FEB24BOSPHX-220 — exposure $38.70 would exceed $30.00 limit
+[2m2026-02-24T17:07:01.767263Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLGAME-26MAR03BOUBRE-BRE spread=6¢ score=240 (boost=10.0x, active 1s ago)
+[2m2026-02-24T17:07:01.767274Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXEPLGAME-26MAR03BOUBRE-BRE — exposure $32.25 would exceed $30.00 limit
+[2m2026-02-24T17:07:01.767286Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLGAME-26MAR03BOUBRE-BRE spread=6¢ score=240 (boost=10.0x, active 1s ago)
+[2m2026-02-24T17:07:01.767297Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXEPLGAME-26MAR03BOUBRE-BRE — exposure $37.05 would exceed $30.00 limit
+[2m2026-02-24T17:07:03.767781Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBATOTAL-26FEB24OKCTOR-232 spread=8¢ score=63360 (boost=10.0x, active 26s ago)
+[2m2026-02-24T17:07:03.767878Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXNBATOTAL-26FEB24OKCTOR-232 — exposure $39.30 would exceed $30.00 limit
+[2m2026-02-24T17:07:03.767912Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBATOTAL-26FEB24BOSPHX-214 spread=8¢ score=48000 (boost=10.0x, active 3s ago)
+[2m2026-02-24T17:07:03.767929Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXNBATOTAL-26FEB24BOSPHX-214 — exposure $31.80 would exceed $30.00 limit
+[2m2026-02-24T17:07:03.767942Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBATOTAL-26FEB24BOSPHX-214 spread=8¢ score=48000 (boost=10.0x, active 3s ago)
+[2m2026-02-24T17:07:03.767955Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXNBATOTAL-26FEB24BOSPHX-214 — exposure $37.20 would exceed $30.00 limit
+[2m2026-02-24T17:07:03.767967Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBATOTAL-26FEB24BOSPHX-220 spread=7¢ score=20370 (boost=10.0x, active 26s ago)
+[2m2026-02-24T17:07:03.767977Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXNBATOTAL-26FEB24BOSPHX-220 — exposure $30.45 would exceed $30.00 limit
+[2m2026-02-24T17:07:03.767990Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBATOTAL-26FEB24BOSPHX-220 spread=7¢ score=20370 (boost=10.0x, active 26s ago)
+[2m2026-02-24T17:07:03.768001Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXNBATOTAL-26FEB24BOSPHX-220 — exposure $38.70 would exceed $30.00 limit
+[2m2026-02-24T17:07:03.768012Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLGAME-26MAR03BOUBRE-BRE spread=5¢ score=250 (boost=10.0x, active 1s ago)
+[2m2026-02-24T17:07:03.768022Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXEPLGAME-26MAR03BOUBRE-BRE — exposure $32.25 would exceed $30.00 limit
+[2m2026-02-24T17:07:03.768034Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXEPLGAME-26MAR03BOUBRE-BRE spread=5¢ score=250 (boost=10.0x, active 1s ago)
+[2m2026-02-24T17:07:03.768044Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM] Skipping KXEPLGAME-26MAR03BOUBRE-BRE — exposure $37.20 would exceed $30.00 limit
