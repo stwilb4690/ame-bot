@@ -217,6 +217,10 @@ async fn handle_ws_message(text: &str, mm: &Arc<MarketMaker>) -> Result<()> {
     let seq = msg.get("seq").and_then(|v| v.as_u64()).unwrap_or(0);
     let body = msg.get("msg");
 
+    if msg_type != "orderbook_delta" && msg_type != "orderbook_snapshot" {
+        info!("[MM-WS-DEBUG] type={} body={}", msg_type, body.map(|b| b.to_string()).unwrap_or_default());
+    }
+
     match msg_type {
         "orderbook_snapshot" => {
             let Some(body) = body else { return Ok(()); };

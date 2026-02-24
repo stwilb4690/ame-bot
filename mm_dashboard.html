@@ -72,7 +72,7 @@ body{font-family:'JetBrains Mono',monospace;background:var(--bg);color:var(--tex
 <div class="panel">
 <div class="panel-header"><span class="panel-title">Spread Opportunities</span><span class="panel-badge" id="oppCount">0</span></div>
 <div class="table-scroll" id="oppScroll">
-<table class="data-table"><thead><tr><th>Ticker</th><th>Bid</th><th>Ask</th><th>Spread</th><th>Depth</th><th>Score</th></tr></thead>
+<table class="data-table"><thead><tr><th>Ticker</th><th>Bid</th><th>Ask</th><th>Spread</th><th>Recency</th><th>Score</th></tr></thead>
 <tbody id="oppBody"><tr><td colspan="6"><div class="empty-state"><div class="icon">📡</div>Scanning markets...</div></td></tr></tbody></table>
 </div></div>
 <div class="panel">
@@ -111,7 +111,7 @@ $('metricAvgSpread').textContent=s.avg_spread_captured_cents&&s.avg_spread_captu
 $('metricAvgHold').textContent=s.avg_hold_time_secs>0?fmtTime(s.avg_hold_time_secs):'--'}
 async function updateOpportunities(){const opps=await fetchJSON('mm_opportunities.json');if(!opps||!opps.length){$('oppCount').textContent='0';$('oppBody').innerHTML='<tr><td colspan="6"><div class="empty-state"><div class="icon">📡</div>No spreads above threshold</div></td></tr>';return}
 $('oppCount').textContent=opps.length;
-const rows=opps.slice(0,15).map(o=>{const sc=(o.spread*100).toFixed(0);const md=Math.min(o.bid_depth||0,o.ask_depth||0);return'<tr><td class="ticker" title="'+o.ticker+'">'+shortTicker(o.ticker)+'</td><td>'+fmtPrice(o.best_yes_bid)+'</td><td>'+fmtPrice(o.best_yes_ask)+'</td><td>'+sc+'¢ '+spreadBar(o.spread)+'</td><td style="color:'+(md>=15?'var(--text)':'var(--text-dim)')+'">'+Math.floor(md)+'</td><td style="color:var(--cyan)">'+(o.score?o.score.toFixed(0):'--')+'</td></tr>'});
+const rows=opps.slice(0,15).map(o=>{const sc=o.spread;const md=Math.min(o.bid_depth||0,o.ask_depth||0);return'<tr><td class="ticker" title="'+o.ticker+'">'+shortTicker(o.ticker)+'</td><td>'+fmtPrice(o.bid_price)+'</td><td>'+fmtPrice(o.ask_price)+'</td><td>'+sc+'¢ '+spreadBar(o.spread)+'</td><td style="color:'+(md>=15?'var(--text)':'var(--text-dim)')+'">'+Math.floor(md)+'</td><td style="color:var(--cyan)">'+(o.score?Math.floor(o.score).toLocaleString():'--')+'</td></tr>'});
 $('oppBody').innerHTML=rows.join('')}
 async function updatePositions(){const pos=await fetchJSON('mm_positions.json');if(!pos||!pos.length){$('posCount').textContent='0';$('posBody').innerHTML='<tr><td colspan="6"><div class="empty-state"><div class="icon">⏳</div>No open positions</div></td></tr>';return}
 $('posCount').textContent=pos.length;
