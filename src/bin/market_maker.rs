@@ -142,7 +142,7 @@ async fn run_mm_ws(
     let host = std::env::var("KALSHI_API_HOST").unwrap_or_else(|_| {
         match ame_bot::config::app_env() {
             ame_bot::config::AppEnv::Demo => "demo-api.kalshi.com".into(),
-            ame_bot::config::AppEnv::Prod => "trading-api.kalshi.com".into(),
+            ame_bot::config::AppEnv::Prod => "api.elections.kalshi.com".into(),
         }
     });
 
@@ -195,8 +195,21 @@ async fn run_mm_ws(
                     debug!("[MM-WS] parse error: {} (msg: {}...)", e, &text[..text.len().min(120)]);
                 }
             }
+            Ok(Message::Binary(data)) => {
+                if let Ok(text) = std::str::from_utf8(&data) {
+                    if let Err(e) = handle_ws_message(text, &mm).await {
+                        debug!("[MM-WS] parse error (binary): {} (msg: {}...)", e, &text[..text.len().min(120)]);
+                    }
+                } else {
+                    debug!("[MM-WS] Received non-UTF8 binary frame ({} bytes) — ignoring", data.len());
+                }
+            }
             Ok(Message::Ping(data)) => {
                 let _ = write.send(Message::Pong(data)).await;
+            }
+            Ok(Message::Close(frame)) => {
+                info!("[MM-WS] Server sent Close frame: {:?}", frame);
+                break;
             }
             Err(e) => {
                 error!("[MM-WS] Error: {}", e);

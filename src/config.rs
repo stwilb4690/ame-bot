@@ -46,7 +46,7 @@ fn kalshi_api_host() -> String {
     // APP_ENV=demo uses the demo environment
     match app_env() {
         AppEnv::Demo => "demo-api.kalshi.com".to_string(),
-        AppEnv::Prod => "trading-api.kalshi.com".to_string(),
+        AppEnv::Prod => "api.elections.kalshi.com".to_string(),
     }
 }
 

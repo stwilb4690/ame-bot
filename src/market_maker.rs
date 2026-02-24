@@ -488,6 +488,8 @@ impl MarketMaker {
     /// }
     /// ```
     pub async fn on_ws_fill(&self, payload: &serde_json::Value) {
+        info!("[MM-FILL] Raw fill payload: {}", payload);
+
         let order_id = payload.get("order_id").and_then(|v| v.as_str()).unwrap_or("");
         let ticker   = payload.get("market_ticker").and_then(|v| v.as_str()).unwrap_or("");
         let side_str = payload.get("side").and_then(|v| v.as_str()).unwrap_or("");
@@ -496,6 +498,7 @@ impl MarketMaker {
         let action   = payload.get("action").and_then(|v| v.as_str()).unwrap_or("");
 
         if order_id.is_empty() || ticker.is_empty() || qty == 0 {
+            warn!("[MM-FILL] Dropping fill — missing required fields (order_id={:?} ticker={:?} qty={})", order_id, ticker, qty);
             return;
         }
 
@@ -505,6 +508,7 @@ impl MarketMaker {
             order_map.contains_key(order_id)
         };
         if !known {
+            warn!("[MM-FILL] Dropping fill — unknown order_id={} ticker={} action={} qty={}x@{}¢", order_id, ticker, action, qty, price);
             return;
         }
 
