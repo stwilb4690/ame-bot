@@ -1426,6 +1426,7 @@ impl MarketMaker {
     pub async fn positions_json(&self) -> serde_json::Value {
         let positions = self.positions.lock().await;
         let sell_states = self.sell_states.lock().await;
+        let meta_map = self.market_meta.read().await;
         let arr: Vec<_> = positions
             .values()
             .map(|p| {
@@ -1433,8 +1434,12 @@ impl MarketMaker {
                     .get(&p.ticker)
                     .map(|s| s.ask_price)
                     .unwrap_or(p.target_exit_price);
+                let title = meta_map.get(&p.ticker)
+                    .map(|m| m.title.as_str())
+                    .unwrap_or("");
                 serde_json::json!({
                     "ticker": p.ticker,
+                    "title": title,
                     "side": if p.side == Side::Yes { "yes" } else { "no" },
                     "entry_price": p.entry_price,
                     "target_exit": p.target_exit_price,
@@ -1451,12 +1456,18 @@ impl MarketMaker {
     pub async fn opportunities_json(&self) -> serde_json::Value {
         let books = self.books.lock().await;
         let opportunities = self.find_opportunities(&books).await;
+        drop(books);
+        let meta_map = self.market_meta.read().await;
 
         let arr: Vec<_> = opportunities
             .iter()
             .map(|o| {
+                let title = meta_map.get(&o.ticker)
+                    .map(|m| m.title.as_str())
+                    .unwrap_or("");
                 serde_json::json!({
                     "ticker": o.ticker,
+                    "title": title,
                     "side": if o.side == Side::Yes { "yes" } else { "no" },
                     "bid_price": o.entry_price,
                     "ask_price": o.exit_price,

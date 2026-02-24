@@ -25,6 +25,7 @@
       --blue:       #64b5f6;
       --blue-dim:   rgba(100,181,246,0.12);
       --text:       #cdd5e0;
+      --text-bright:#e8edf5;
       --text-dim:   #4a6070;
       --mono:       'IBM Plex Mono', monospace;
       --sans:       'DM Sans', sans-serif;
@@ -248,6 +249,10 @@
     .ticker-prefix { color: var(--text-dim); }
     .ticker-detail { color: var(--cyan); }
 
+    .tk-title { color: var(--text-bright); font-weight: 500; font-size: 11px; }
+    .tk-sub { color: var(--text-dim); font-size: 9px; font-weight: 400; }
+    .tbl td.tk-cell { white-space: normal; min-width: 180px; max-width: 280px; }
+
     .badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.6px; }
     .badge-yes { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,0.3); }
     .badge-no  { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(239,83,80,0.3); }
@@ -363,10 +368,10 @@
       <span class="section-count" id="oppCount">0</span>
     </div>
     <div class="table-wrap">
-      <table>
+      <table class="tbl">
         <thead>
           <tr>
-            <th>Ticker</th>
+            <th>Market</th>
             <th>Side</th>
             <th>Bid</th>
             <th>Ask</th>
@@ -389,10 +394,10 @@
       <span class="section-count" id="posCount">0</span>
     </div>
     <div class="table-wrap">
-      <table>
+      <table class="tbl">
         <thead>
           <tr>
-            <th>Ticker</th>
+            <th>Market</th>
             <th>Side</th>
             <th>Entry</th>
             <th>Target</th>
@@ -472,12 +477,20 @@ function fmtScore(v) {
   return String(v);
 }
 
-function fmtTicker(ticker) {
+function renderTicker(ticker, title) {
+  if (title && title.length > 0) {
+    var display = title.length > 45 ? title.substring(0, 45) + '\u2026' : title;
+    return '<span class="tk" title="' + esc(ticker) + '">'
+      + '<span class="tk-title">' + esc(display) + '</span>'
+      + '<br><span class="tk-sub">' + esc(ticker) + '</span>'
+      + '</span>';
+  }
+  // Fallback: split ticker
   var s = ticker.replace(/^KX/, '');
   var idx = s.indexOf('-');
-  if (idx < 0) return '<span class="ticker-detail">' + s + '</span>';
-  return '<span class="ticker-prefix">' + s.slice(0, idx) + '</span>' +
-         '<span class="ticker-detail">' + s.slice(idx) + '</span>';
+  if (idx < 0) return '<span class="ticker-detail">' + esc(s) + '</span>';
+  return '<span class="ticker-prefix">' + esc(s.slice(0, idx)) + '</span>' +
+         '<span class="ticker-detail">' + esc(s.slice(idx)) + '</span>';
 }
 
 function fmtActivity(secs) {
@@ -585,7 +598,7 @@ async function refresh() {
   } else {
     oppBody.innerHTML = opps.map(function(o) {
       return '<tr>' +
-        '<td>' + fmtTicker(o.ticker) + '</td>' +
+        '<td class="tk-cell">' + renderTicker(o.ticker, o.title) + '</td>' +
         '<td><span class="badge badge-' + esc(o.side) + '">' + esc(o.side.toUpperCase()) + '</span></td>' +
         '<td>' + o.bid_price + '&#162;</td>' +
         '<td>' + o.ask_price + '&#162;</td>' +
@@ -606,7 +619,7 @@ async function refresh() {
       var estPnl = (p.current_ask - p.entry_price) * p.qty / 100;
       var pnlCls = estPnl > 0 ? ' positive' : estPnl < 0 ? ' negative' : '';
       return '<tr>' +
-        '<td>' + fmtTicker(p.ticker) + '</td>' +
+        '<td class="tk-cell">' + renderTicker(p.ticker, p.title) + '</td>' +
         '<td><span class="badge badge-' + esc(p.side) + '">' + esc(p.side.toUpperCase()) + '</span></td>' +
         '<td>' + p.entry_price + '&#162;</td>' +
         '<td>' + p.target_exit + '&#162;</td>' +
