@@ -707,7 +707,7 @@ impl MarketMaker {
                 }
             }
 
-            // Get best prices
+            // Get YES book (required for any opportunity)
             let (yes_bid_px, yes_bid_qty) = match book.best_yes_bid() {
                 Some(v) => v,
                 None => continue,
@@ -716,36 +716,6 @@ impl MarketMaker {
                 Some(v) => v,
                 None => continue,
             };
-            let (no_bid_px, no_bid_qty) = match book.best_no_bid() {
-                Some(v) => v,
-                None => continue,
-            };
-            let (no_ask_px, no_ask_qty) = match book.best_no_ask() {
-                Some(v) => v,
-                None => continue,
-            };
-
-            // Calculate midpoints and sanity-check parity
-            let yes_mid = (yes_bid_px + yes_ask_px) / 2;
-            let no_mid = (no_bid_px + no_ask_px) / 2;
-            let sum = (yes_mid + no_mid) as f64 / 100.0;
-            if sum < 0.8 || sum > 1.2 {
-                continue;
-            }
-
-            // Bid YES / Ask NO spread (complementary)
-            let net_spread_yes = no_bid_px - yes_ask_px;
-            let gross_spread_yes = no_bid_px.max(0) - yes_ask_px.min(99);
-
-            // Bid NO / Ask YES spread (complementary)
-            let net_spread_no = yes_bid_px - no_ask_px;
-            let gross_spread_no = yes_bid_px.max(0) - no_ask_px.min(99);
-
-            if gross_spread_yes < self.config.min_spread_cents
-                && gross_spread_no < self.config.min_spread_cents
-            {
-                continue;
-            }
 
             // Recency boost
             let secs_since_activity = book.seconds_since_activity();
@@ -759,38 +729,50 @@ impl MarketMaker {
                 0.1
             };
 
-            if gross_spread_yes >= self.config.min_spread_cents
-                && net_spread_yes >= self.config.min_net_spread_cents
+            // YES side same-side spread (bid → ask gap in the YES book)
+            let yes_spread = yes_ask_px - yes_bid_px;
+            if yes_spread >= self.config.min_spread_cents
+                && yes_spread <= 25
+                && yes_bid_px >= 15
+                && yes_bid_px <= 85
             {
-                let depth = yes_ask_qty.min(no_bid_qty);
-                let base_score = depth * gross_spread_yes;
+                let depth = yes_bid_qty.min(yes_ask_qty);
+                let base_score = depth * yes_spread;
                 let score = (base_score as f64 * recency_boost) as i64;
 
                 opportunities.push(SpreadOpportunity {
                     ticker: ticker.clone(),
                     side: Side::Yes,
-                    entry_price: yes_ask_px,
-                    exit_price: no_bid_px,
-                    spread: gross_spread_yes,
+                    entry_price: yes_bid_px,
+                    exit_price: yes_ask_px,
+                    spread: yes_spread,
                     score,
                 });
             }
 
-            if gross_spread_no >= self.config.min_spread_cents
-                && net_spread_no >= self.config.min_net_spread_cents
+            // NO side same-side spread (only if NO book is populated)
+            if let (Some((no_bid_px, no_bid_qty)), Some((no_ask_px, no_ask_qty))) =
+                (book.best_no_bid(), book.best_no_ask())
             {
-                let depth = no_ask_qty.min(yes_bid_qty);
-                let base_score = depth * gross_spread_no;
-                let score = (base_score as f64 * recency_boost) as i64;
+                let no_spread = no_ask_px - no_bid_px;
+                if no_spread >= self.config.min_spread_cents
+                    && no_spread <= 25
+                    && no_bid_px >= 15
+                    && no_bid_px <= 85
+                {
+                    let depth = no_bid_qty.min(no_ask_qty);
+                    let base_score = depth * no_spread;
+                    let score = (base_score as f64 * recency_boost) as i64;
 
-                opportunities.push(SpreadOpportunity {
-                    ticker: ticker.clone(),
-                    side: Side::No,
-                    entry_price: no_ask_px,
-                    exit_price: yes_bid_px,
-                    spread: gross_spread_no,
-                    score,
-                });
+                    opportunities.push(SpreadOpportunity {
+                        ticker: ticker.clone(),
+                        side: Side::No,
+                        entry_price: no_bid_px,
+                        exit_price: no_ask_px,
+                        spread: no_spread,
+                        score,
+                    });
+                }
             }
         }
 
@@ -815,8 +797,12 @@ impl MarketMaker {
         let bid_offset = scaled_offset.max(self.config.bid_offset_cents);
         let ask_offset = scaled_offset.max(self.config.ask_offset_cents);
 
-        let buy_price = (opp.entry_price - bid_offset).max(1).min(99);
-        let sell_price = (opp.exit_price + ask_offset).max(1).min(99);
+        // entry_price = best bid; buy inside the spread (above the bid)
+        let buy_price = (opp.entry_price + bid_offset).max(1).min(99);
+        // exit_price = best ask; sell inside the spread (below the ask)
+        let sell_price = (opp.exit_price - ask_offset).max(1).min(99);
+        // Guard: ensure sell > buy even when offsets eat into a narrow spread
+        let sell_price = sell_price.max(buy_price + 1);
 
         let client_order_id = format!(
             "mm_{}_{}",
