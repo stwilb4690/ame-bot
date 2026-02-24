@@ -1274,6 +1274,8 @@ pub struct KalshiEvent {
 #[derive(Debug, Deserialize)]
 pub struct KalshiMarketsResponse {
     pub markets: Vec<KalshiMarket>,
+    #[serde(default)]
+    pub cursor: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

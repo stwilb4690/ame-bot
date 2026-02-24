@@ -300,6 +300,42 @@ impl KalshiApiClient {
         let resp: KalshiMarketsResponse = self.get(&path).await?;
         Ok(resp.markets)
     }
+
+    /// Fetch open markets for a single series ticker (server-side filter).
+    /// Much cheaper than bulk pagination — each series returns a small set.
+    pub async fn get_markets_by_series(&self, series_ticker: &str, limit: u32) -> Result<Vec<KalshiMarket>> {
+        let path = format!("/markets?series_ticker={}&status=open&limit={}", series_ticker, limit);
+        let resp: KalshiMarketsResponse = self.get(&path).await?;
+        Ok(resp.markets)
+    }
+
+    /// Fetch all open markets in bulk using cursor pagination.
+    /// Uses GET /markets?status=open&limit={limit} and follows cursors until
+    /// the API signals no more pages. Replaces the old per-series discovery
+    /// loop that required 100+ sequential REST calls.
+    pub async fn get_all_open_markets(&self, limit: u32) -> Result<Vec<KalshiMarket>> {
+        let mut all_markets: Vec<KalshiMarket> = Vec::new();
+        let mut cursor: Option<String> = None;
+
+        loop {
+            let path = match &cursor {
+                Some(c) => format!("/markets?status=open&limit={}&cursor={}", limit, c),
+                None    => format!("/markets?status=open&limit={}", limit),
+            };
+
+            let resp: KalshiMarketsResponse = self.get(&path).await?;
+            let page_len = resp.markets.len();
+            all_markets.extend(resp.markets);
+
+            // Stop when the API returns no cursor or a short page
+            match resp.cursor {
+                Some(c) if page_len >= limit as usize => cursor = Some(c),
+                _ => break,
+            }
+        }
+
+        Ok(all_markets)
+    }
     
     /// Generic authenticated POST request
     async fn post<T: serde::de::DeserializeOwned, B: Serialize>(&self, path: &str, body: &B) -> Result<T> {
@@ -452,6 +488,116 @@ impl KalshiApiClient {
             anyhow::bail!("Kalshi cancel order error {}: {}", status, body);
         }
 
+        Ok(resp.json().await?)
+    }
+
+    /// DELETE /portfolio/orders/batched — cancel ALL open resting orders in one call.
+    /// Returns the raw JSON from Kalshi (list of cancelled order IDs).
+    pub async fn cancel_all_orders(&self) -> anyhow::Result<serde_json::Value> {
+        let path = "/portfolio/orders/batched";
+        let url = format!("{}{}", kalshi_api_base(), path);
+        let timestamp_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        let full_path = format!("/trade-api/v2{}", path);
+        let msg = format!("{}DELETE{}", timestamp_ms, full_path);
+        let signature = self.config.sign(&msg)?;
+
+        let resp = self.http
+            .delete(&url)
+            .header("KALSHI-ACCESS-KEY", &self.config.api_key_id)
+            .header("KALSHI-ACCESS-SIGNATURE", &signature)
+            .header("KALSHI-ACCESS-TIMESTAMP", timestamp_ms.to_string())
+            .timeout(ORDER_TIMEOUT)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            anyhow::bail!("Kalshi batch cancel error {}: {}", status, body);
+        }
+        Ok(resp.json().await?)
+    }
+
+    /// GET /markets/{ticker}/orderbook — fetch full depth snapshot for a single market.
+    pub async fn get_orderbook_snapshot(&self, ticker: &str) -> anyhow::Result<serde_json::Value> {
+        self.get(&format!("/markets/{}/orderbook", ticker)).await
+    }
+
+    /// POST /portfolio/orders — place a post-only resting limit order (market-maker mode).
+    ///
+    /// Uses the new `count_fp` string field (fixed-point, March 5 API format).
+    /// `price_cents` is integer cents (1–99); `count` is number of contracts.
+    /// Returns the raw JSON order response.
+    pub async fn place_post_only_limit(
+        &self,
+        ticker: &str,
+        action: &str,   // "buy" or "sell"
+        side: &str,     // "yes" or "no"
+        price_cents: i64,
+        count: u32,
+        client_order_id: &str,
+    ) -> anyhow::Result<serde_json::Value> {
+        #[derive(serde::Serialize)]
+        struct PostOnlyOrderReq<'a> {
+            ticker: &'a str,
+            action: &'a str,
+            side: &'a str,
+            #[serde(rename = "type")]
+            order_type: &'static str,
+            count_fp: String,
+            yes_price: Option<i64>,
+            no_price: Option<i64>,
+            client_order_id: &'a str,
+            post_only: bool,
+        }
+
+        let (yes_price, no_price) = if side == "yes" {
+            (Some(price_cents), None)
+        } else {
+            (None, Some(price_cents))
+        };
+
+        let req = PostOnlyOrderReq {
+            ticker,
+            action,
+            side,
+            order_type: "limit",
+            count_fp: format!("{:.2}", count),
+            yes_price,
+            no_price,
+            client_order_id,
+            post_only: true,
+        };
+
+        let path = "/portfolio/orders";
+        let url = format!("{}{}", kalshi_api_base(), path);
+        let timestamp_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        let full_path = format!("/trade-api/v2{}", path);
+        let msg = format!("{}POST{}", timestamp_ms, full_path);
+        let signature = self.config.sign(&msg)?;
+
+        let resp = self.http
+            .post(&url)
+            .header("KALSHI-ACCESS-KEY", &self.config.api_key_id)
+            .header("KALSHI-ACCESS-SIGNATURE", &signature)
+            .header("KALSHI-ACCESS-TIMESTAMP", timestamp_ms.to_string())
+            .header("Content-Type", "application/json")
+            .timeout(ORDER_TIMEOUT)
+            .json(&req)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            anyhow::bail!("Kalshi post-only order error {}: {}", status, body);
+        }
         Ok(resp.json().await?)
     }
 

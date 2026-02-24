@@ -13,6 +13,7 @@ pub mod polymarket_clob;
 pub mod polymarket_us;
 pub mod position_tracker;
 pub mod risk_manager;
+pub mod market_maker;
 pub mod signal_trader;
 pub mod telegram;
 pub mod types;
