@@ -601,6 +601,11 @@ impl KalshiApiClient {
         Ok(resp.json().await?)
     }
 
+    /// GET /portfolio/fills?limit={limit} — fetch recent fills.
+    pub async fn get_recent_fills(&self, limit: u32) -> anyhow::Result<serde_json::Value> {
+        self.get(&format!("/portfolio/fills?limit={}", limit)).await
+    }
+
     pub async fn sell_ioc(
         &self,
         ticker: &str,

@@ -484,11 +484,16 @@ async fn main() -> Result<()> {
             info!("[MM] Starting scan loop (2s cadence)");
 
             let mut interval = tokio::time::interval(Duration::from_secs(2));
+            let mut tick_count: u64 = 0;
             loop {
                 tokio::select! {
                     _ = interval.tick() => {
+                        tick_count += 1;
                         scan_mm.scan_and_act().await;
                         scan_mm.check_timeouts().await;
+                        if tick_count % 5 == 0 {
+                            scan_mm.poll_rest_fills().await;
+                        }
                     }
                     _ = scan_shutdown.recv() => break,
                 }

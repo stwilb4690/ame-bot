@@ -9,7 +9,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use serde::Serialize;
 use tokio::sync::{Mutex, RwLock};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::kalshi::KalshiApiClient;
 use crate::telegram::TelegramClient;
@@ -601,6 +601,33 @@ impl MarketMaker {
             };
             let target_exit = target_ask.unwrap_or(filled_price + 2).max(1).min(99);
 
+            // Re-read current order book to check if our stale target is above market
+            let target_exit = {
+                let books = self.books.lock().await;
+                if let Some(book) = books.get(ticker) {
+                    let current_best_ask = match side {
+                        Side::Yes => book.best_yes_ask().map(|(p, _)| p),
+                        Side::No  => book.best_no_ask().map(|(p, _)| p),
+                    };
+                    if let Some(current_ask) = current_best_ask {
+                        if current_ask < target_exit {
+                            let adjusted = (current_ask - 1).max(filled_price + 1);
+                            info!(
+                                "[MM-FILL] Sell pricing adjusted: stale={}¢ current_ask={}¢ fresh={}¢ for {}",
+                                target_exit, current_ask, adjusted, ticker
+                            );
+                            adjusted
+                        } else {
+                            target_exit
+                        }
+                    } else {
+                        target_exit
+                    }
+                } else {
+                    target_exit
+                }
+            };
+
             let position = Position {
                 ticker: ticker.to_string(),
                 side,
@@ -1016,11 +1043,22 @@ impl MarketMaker {
         };
 
         for ticker in to_cancel_buy {
+            // Find the specific order_id for this ticker before removing it
+            let order_id = {
+                let order_map = self.order_to_ticker.lock().await;
+                order_map.iter()
+                    .find(|(_, v)| v.as_str() == ticker.as_str())
+                    .map(|(k, _)| k.clone())
+            };
             self.pending_orders.lock().await.remove(&ticker);
-            self.order_to_ticker.lock().await.retain(|_, v| v != &ticker);
-            warn!("[MM-TIMEOUT] Buy order for {} timed out — canceling", ticker);
-            if let Err(e) = self.kalshi_api.cancel_all_orders().await {
-                error!("[MM-TIMEOUT] Cancel failed: {}", e);
+            if let Some(ref oid) = order_id {
+                self.order_to_ticker.lock().await.remove(oid);
+                warn!("[MM-TIMEOUT] Buy order for {} timed out — canceling order {}", ticker, oid);
+                if let Err(e) = self.kalshi_api.cancel_order(oid).await {
+                    debug!("[MM-TIMEOUT] Cancel {} ignored (may have already filled): {}", oid, e);
+                }
+            } else {
+                warn!("[MM-TIMEOUT] Buy order for {} timed out — no order_id found, skipping cancel", ticker);
             }
         }
 
@@ -1043,6 +1081,67 @@ impl MarketMaker {
             let Some(side) = side else { continue };
             let side_str = if side == Side::Yes { "yes" } else { "no" };
 
+            // Immediate reprice: if our sell is above current market ask, reprice now
+            {
+                let current_best_ask = {
+                    let books_guard = self.books.lock().await;
+                    books_guard.get(&ticker).and_then(|b| match side {
+                        Side::Yes => b.best_yes_ask().map(|(p, _)| p),
+                        Side::No  => b.best_no_ask().map(|(p, _)| p),
+                    })
+                };
+                if let Some(current_ask) = current_best_ask {
+                    if state.ask_price > current_ask {
+                        let new_ask = (current_ask - 1).max(state.entry_price);
+                        info!(
+                            "[MM-REPRICE] {} old={}¢ current_ask={}¢ new={}¢",
+                            ticker, state.ask_price, current_ask, new_ask
+                        );
+                        if !self.config.dry_run {
+                            let _ = self.kalshi_api.cancel_order(&state.order_id).await;
+                            let client_order_id = format!(
+                                "mm_reprice_{}_{}",
+                                ticker,
+                                self.start_time.elapsed().as_secs()
+                            );
+                            match self.kalshi_api.place_post_only_limit(
+                                &ticker,
+                                "sell",
+                                side_str,
+                                new_ask,
+                                state.qty as u32,
+                                &client_order_id,
+                            ).await {
+                                Ok(resp) => {
+                                    let new_order_id = resp
+                                        .get("order")
+                                        .and_then(|o| o.get("order_id"))
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("unknown")
+                                        .to_string();
+                                    let mut ss = self.sell_states.lock().await;
+                                    if let Some(s) = ss.get_mut(&ticker) {
+                                        s.ask_price = new_ask;
+                                        s.order_id = new_order_id;
+                                        s.last_fade = Instant::now();
+                                    }
+                                }
+                                Err(e) => {
+                                    warn!("[MM-REPRICE] Failed to re-place sell for {}: {}", ticker, e);
+                                }
+                            }
+                        } else {
+                            let mut ss = self.sell_states.lock().await;
+                            if let Some(s) = ss.get_mut(&ticker) {
+                                s.ask_price = new_ask;
+                                s.last_fade = Instant::now();
+                            }
+                        }
+                        continue; // Skip normal fade logic
+                    }
+                }
+            }
+
             // Force-exit if max hold time exceeded
             if state.placed_time.elapsed() >= buy_timeout {
                 warn!(
@@ -1052,32 +1151,41 @@ impl MarketMaker {
                 if !self.config.dry_run {
                     // Cancel current sell, place IOC sell at breakeven
                     let _ = self.kalshi_api.cancel_order(&state.order_id).await;
-                    let client_order_id = format!(
-                        "mm_exit_{}_{}",
-                        ticker,
-                        self.start_time.elapsed().as_secs()
-                    );
-                    let _ = self
-                        .kalshi_api
-                        .place_post_only_limit(
-                            &ticker,
-                            "sell",
-                            side_str,
-                            state.entry_price, // breakeven floor
-                            state.qty as u32,
-                            &client_order_id,
-                        )
-                        .await;
+                    match self.kalshi_api.sell_ioc(&ticker, side_str, state.entry_price, state.qty).await {
+                        Ok(resp) => {
+                            info!(
+                                "[MM-FADE] Force-exit IOC sell {} filled={} for {}",
+                                ticker,
+                                resp.order.filled_count(),
+                                ticker
+                            );
+                        }
+                        Err(e) => {
+                            error!("[MM-FADE] Force-exit sell failed for {}: {}", ticker, e);
+                        }
+                    }
                 }
                 // State will be cleaned up when fill event arrives
                 continue;
             }
 
-            // Fade: lower ask 1¢ every FADE_INTERVAL after FADE_START
-            if state.placed_time.elapsed() > FADE_START
-                && state.last_fade.elapsed() >= FADE_INTERVAL
+            // Fade: adaptive speed based on market activity
+            let is_live = {
+                let books_guard = self.books.lock().await;
+                books_guard.get(&ticker)
+                    .map(|b| b.seconds_since_activity() <= 60)
+                    .unwrap_or(false)
+            };
+            let (fade_start, fade_interval, fade_step) = if is_live {
+                (Duration::from_secs(10), Duration::from_secs(5), 2i64)
+            } else {
+                (FADE_START, FADE_INTERVAL, 1i64)
+            };
+
+            if state.placed_time.elapsed() > fade_start
+                && state.last_fade.elapsed() >= fade_interval
             {
-                let new_ask = (state.ask_price - 1).max(state.entry_price);
+                let new_ask = (state.ask_price - fade_step).max(state.entry_price);
                 if new_ask < state.ask_price {
                     info!(
                         "[MM-FADE] {} lowering ask {}¢ → {}¢ (floor {}¢)",
@@ -1191,21 +1299,18 @@ impl MarketMaker {
             for (ticker, side, entry_price, qty) in &positions_snap {
                 let side_str = if *side == Side::Yes { "yes" } else { "no" };
                 let exit_price = (entry_price - KILL_CENTS + 1).max(1);
-                let client_order_id =
-                    format!("mm_kill_{}_{}", ticker, self.start_time.elapsed().as_secs());
-                if let Err(e) = self
-                    .kalshi_api
-                    .place_post_only_limit(
-                        ticker,
-                        "sell",
-                        side_str,
-                        exit_price,
-                        *qty as u32,
-                        &client_order_id,
-                    )
-                    .await
-                {
-                    error!("[MM-KILL] Emergency sell failed for {}: {}", ticker, e);
+                match self.kalshi_api.sell_ioc(ticker, side_str, exit_price, *qty).await {
+                    Ok(resp) => {
+                        info!(
+                            "[MM-KILL] Emergency IOC sell {} filled={} for {}",
+                            ticker,
+                            resp.order.filled_count(),
+                            ticker
+                        );
+                    }
+                    Err(e) => {
+                        error!("[MM-KILL] Emergency sell failed for {}: {}", ticker, e);
+                    }
                 }
             }
         }
@@ -1218,6 +1323,59 @@ impl MarketMaker {
 
         error!("[MM-KILL] Kill switch complete — pausing 60s before resuming");
         tokio::time::sleep(Duration::from_secs(60)).await;
+    }
+
+    // ─── REST Fill Polling ────────────────────────────────────────────────────
+
+    /// Poll recent fills via REST as a safety net for missed WebSocket fill events.
+    /// Called every ~10 seconds from the scanner task.
+    pub async fn poll_rest_fills(&self) {
+        let resp = match self.kalshi_api.get_recent_fills(10).await {
+            Ok(v) => v,
+            Err(e) => {
+                debug!("[MM-REST] poll_rest_fills error: {}", e);
+                return;
+            }
+        };
+
+        let fills = match resp.get("fills").and_then(|v| v.as_array()) {
+            Some(arr) => arr.clone(),
+            None => return,
+        };
+
+        for fill in &fills {
+            let order_id  = fill.get("order_id").and_then(|v| v.as_str()).unwrap_or("");
+            let ticker    = fill.get("ticker").and_then(|v| v.as_str()).unwrap_or("");
+            let side_str  = fill.get("side").and_then(|v| v.as_str()).unwrap_or("");
+            let yes_price = fill.get("yes_price").and_then(|v| v.as_i64()).unwrap_or(0);
+            let count     = fill.get("count").and_then(|v| v.as_i64()).unwrap_or(0);
+            let action    = fill.get("action").and_then(|v| v.as_str()).unwrap_or("");
+
+            if order_id.is_empty() || ticker.is_empty() {
+                continue;
+            }
+
+            // Check if we missed the WS fill: ticker is in pending_orders but NOT in positions
+            let in_pending  = self.pending_orders.lock().await.contains_key(ticker);
+            let in_positions = self.positions.lock().await.contains_key(ticker);
+
+            if in_pending && !in_positions {
+                info!(
+                    "[MM-REST-FILL] Missed WS fill detected: {} {}x@{}¢ order={} action={}",
+                    ticker, count, yes_price, order_id, action
+                );
+                // Build synthetic payload matching WS fill format (market_ticker field)
+                let synthetic = serde_json::json!({
+                    "order_id":     order_id,
+                    "market_ticker": ticker,
+                    "side":         side_str,
+                    "yes_price":    yes_price,
+                    "count":        count,
+                    "action":       action,
+                });
+                self.on_ws_fill(&synthetic).await;
+            }
+        }
     }
 
     // ─── State API ─────────────────────────────────────────────────────────────
