@@ -356,6 +356,7 @@ pub struct SpreadOpportunity {
     pub exit_price: i64,
     pub spread: i64,
     pub score: i64,
+    pub recency_secs: u64,
 }
 
 // ─── MarketMaker ───────────────────────────────────────────────────────────────
@@ -707,7 +708,8 @@ impl MarketMaker {
             if positions.contains_key(&opp.ticker) || pending.contains_key(&opp.ticker) {
                 continue;
             }
-            if positions.len() >= self.config.max_positions {
+            // Count filled positions AND pending resting orders against the cap
+            if positions.len() + pending.len() >= self.config.max_positions {
                 break;
             }
 
@@ -805,6 +807,13 @@ impl MarketMaker {
                 0.1
             };
 
+            // Volume factor: log2(1 + volume/1000), default 1.0 if unknown
+            let volume_factor = meta_map
+                .get(ticker)
+                .and_then(|m| m.volume_cents)
+                .map(|v| (1.0_f64 + v as f64 / 1000.0).log2().max(1.0))
+                .unwrap_or(1.0);
+
             // YES side same-side spread (bid → ask gap in the YES book)
             let yes_spread = yes_ask_px - yes_bid_px;
             if yes_spread >= self.config.min_spread_cents
@@ -812,8 +821,13 @@ impl MarketMaker {
                 && yes_bid_px >= 15
                 && yes_bid_px <= 85
             {
-                let depth = yes_bid_qty.min(yes_ask_qty);
-                let score = (depth as f64 * (yes_spread as f64).powf(1.5) * recency_boost) as i64;
+                let depth = yes_bid_qty.min(yes_ask_qty) as f64;
+                // score = spread^1.5 * log2(1+depth) * recency_boost * volume_factor
+                let score = ((yes_spread as f64).powf(1.5)
+                    * (1.0 + depth).log2()
+                    * recency_boost
+                    * volume_factor
+                    * 1000.0) as i64;
 
                 opportunities.push(SpreadOpportunity {
                     ticker: ticker.clone(),
@@ -822,6 +836,7 @@ impl MarketMaker {
                     exit_price: yes_ask_px,
                     spread: yes_spread,
                     score,
+                    recency_secs: secs_since_activity,
                 });
             }
 
@@ -835,8 +850,12 @@ impl MarketMaker {
                     && no_bid_px >= 15
                     && no_bid_px <= 85
                 {
-                    let depth = no_bid_qty.min(no_ask_qty);
-                    let score = (depth as f64 * (no_spread as f64).powf(1.5) * recency_boost) as i64;
+                    let depth = no_bid_qty.min(no_ask_qty) as f64;
+                    let score = ((no_spread as f64).powf(1.5)
+                        * (1.0 + depth).log2()
+                        * recency_boost
+                        * volume_factor
+                        * 1000.0) as i64;
 
                     opportunities.push(SpreadOpportunity {
                         ticker: ticker.clone(),
@@ -845,12 +864,26 @@ impl MarketMaker {
                         exit_price: no_ask_px,
                         spread: no_spread,
                         score,
+                        recency_secs: secs_since_activity,
                     });
                 }
             }
         }
 
         opportunities.sort_by(|a, b| b.score.cmp(&a.score));
+
+        // Deduplicate by event prefix (everything before the last hyphen segment).
+        // After sorting, the first occurrence of each event key is the best-scoring.
+        let mut seen_events = std::collections::HashSet::new();
+        opportunities.retain(|opp| {
+            let event_key = if let Some(pos) = opp.ticker.rfind('-') {
+                opp.ticker[..pos].to_string()
+            } else {
+                opp.ticker.clone()
+            };
+            seen_events.insert(event_key)
+        });
+
         opportunities.truncate(10);
         opportunities
     }
@@ -878,7 +911,7 @@ impl MarketMaker {
         // Guard: ensure sell > buy even when offsets eat into a narrow spread
         let sell_price = sell_price.max(buy_price + 1);
 
-        // ── Capital exposure check (filled positions only) ────────────────────
+        // ── Capital exposure check (filled positions + pending resting orders) ──
         {
             let position_exposure: f64 = {
                 let positions = self.positions.lock().await;
@@ -887,12 +920,19 @@ impl MarketMaker {
                     .map(|p| (p.entry_price * p.qty) as f64 / 100.0)
                     .sum()
             };
+            let pending_exposure: f64 = {
+                let pending = self.pending_orders.lock().await;
+                pending
+                    .values()
+                    .map(|(q, _)| (q.bid_price * q.size) as f64 / 100.0)
+                    .sum()
+            };
             let new_order_cost = (buy_price * self.config.order_size) as f64 / 100.0;
-            let total_exposure = position_exposure + new_order_cost;
+            let total_exposure = position_exposure + pending_exposure + new_order_cost;
             if total_exposure > self.config.max_exposure {
                 info!(
-                    "[MM] Skipping {} — position exposure ${:.2} would exceed ${:.2} limit",
-                    opp.ticker, total_exposure, self.config.max_exposure
+                    "[MM] Skipping {} — exposure ${:.2} (pos=${:.2} + pending=${:.2} + new=${:.2}) would exceed ${:.2} limit",
+                    opp.ticker, total_exposure, position_exposure, pending_exposure, new_order_cost, self.config.max_exposure
                 );
                 return;
             }
@@ -1189,11 +1229,25 @@ impl MarketMaker {
             0.0
         };
 
+        let (open_positions, position_exposure): (usize, f64) = {
+            let positions = self.positions.lock().await;
+            let exp = positions.values().map(|p| (p.entry_price * p.qty) as f64 / 100.0).sum();
+            (positions.len(), exp)
+        };
+        let (pending_count, pending_exposure): (usize, f64) = {
+            let pending = self.pending_orders.lock().await;
+            let exp = pending.values().map(|(q, _)| (q.bid_price * q.size) as f64 / 100.0).sum();
+            (pending.len(), exp)
+        };
+        let total_exposure = position_exposure + pending_exposure;
+
         serde_json::json!({
             "mode": if self.config.dry_run { "dry_run" } else { "live" },
             "balance": format!("{:.2}", balance as f64 / 100.0),
             "daily_pnl": format!("{:.2}", daily_pnl),
-            "open_positions": self.positions.lock().await.len(),
+            "open_positions": open_positions,
+            "pending_orders": pending_count,
+            "exposure": format!("{:.2}", total_exposure),
             "total_trades_today": total,
             "win_rate": win_rate,
             "uptime_secs": self.start_time.elapsed().as_secs(),
@@ -1235,10 +1289,13 @@ impl MarketMaker {
                 serde_json::json!({
                     "ticker": o.ticker,
                     "side": if o.side == Side::Yes { "yes" } else { "no" },
+                    "bid_price": o.entry_price,
+                    "ask_price": o.exit_price,
                     "entry_price": o.entry_price,
                     "exit_price": o.exit_price,
                     "spread": o.spread,
                     "score": o.score,
+                    "recency_secs": o.recency_secs,
                 })
             })
             .collect();

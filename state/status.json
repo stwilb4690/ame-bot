@@ -1,8 +1,8 @@
 {
   "mode": "full",
   "status": "running",
-  "uptime_secs": 145610,
-  "last_update": "2026-02-24T17:36:56.160560+00:00",
+  "uptime_secs": 152500,
+  "last_update": "2026-02-24T19:31:46.153943+00:00",
   "kalshi_ws": "connected",
   "poly_ws": "connected",
   "markets_tracked": 151,
@@ -13,7 +13,7 @@
   "daily_pnl_cents": 0,
   "arb_threshold_cents": 99,
   "poly_us_balance_cents": 11000,
-  "kalshi_balance_cents": 16200,
+  "kalshi_balance_cents": 15529,
   "version": "2.0.0",
   "app_env": "prod"
 }

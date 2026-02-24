@@ -515,20 +515,24 @@ async fn main() -> Result<()> {
                         let status = hb_mm.status_json().await;
                         let books_count = hb_mm.books.lock().await.len();
                         info!(
-                            "[MM] HEARTBEAT | mode={} pnl={} positions={} trades={} books={} uptime={}s",
+                            "[MM] HEARTBEAT | mode={} pnl={} positions={} pending={} exposure=${} trades={} books={} uptime={}s",
                             status["mode"].as_str().unwrap_or("?"),
                             status["daily_pnl"].as_str().unwrap_or("?"),
                             status["open_positions"],
+                            status["pending_orders"],
+                            status["exposure"].as_str().unwrap_or("?"),
                             status["total_trades_today"],
                             books_count,
                             status["uptime_secs"],
                         );
                         if let Some(ref tg) = hb_telegram {
                             let summary = format!(
-                                "Mode: {}\nP&L: ${}\nPositions: {}\nTrades today: {}\nWin rate: {:.1}%\nUptime: {}s\nBooks: {}",
+                                "Mode: {}\nP&L: ${}\nPositions: {}\nPending orders: {}\nExposure: ${}\nTrades today: {}\nWin rate: {:.1}%\nUptime: {}s\nBooks: {}",
                                 status["mode"].as_str().unwrap_or("?"),
                                 status["daily_pnl"].as_str().unwrap_or("?"),
                                 status["open_positions"],
+                                status["pending_orders"],
+                                status["exposure"].as_str().unwrap_or("?"),
                                 status["total_trades_today"],
                                 status["win_rate"].as_f64().unwrap_or(0.0) * 100.0,
                                 status["uptime_secs"],
