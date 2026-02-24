@@ -177,16 +177,16 @@ async fn run_mm_ws(
     });
     write.send(Message::Text(sub_ob.to_string())).await?;
 
-    // Subscribe to user_orders (authenticated, no market_tickers needed)
-    let sub_uo = serde_json::json!({
+    // Subscribe to fill channel (authenticated, no market_tickers needed)
+    let sub_fill = serde_json::json!({
         "id": 2,
         "cmd": "subscribe",
         "params": {
-            "channels": ["user_orders"],
+            "channels": ["fill"],
         }
     });
-    write.send(Message::Text(sub_uo.to_string())).await?;
-    info!("[MM-WS] Subscribed to orderbook_delta + user_orders");
+    write.send(Message::Text(sub_fill.to_string())).await?;
+    info!("[MM-WS] Subscribed to orderbook_delta + fill");
 
     while let Some(msg) = read.next().await {
         match msg {
@@ -269,8 +269,14 @@ async fn handle_ws_message(text: &str, mm: &Arc<MarketMaker>) -> Result<()> {
             ).await;
         }
 
-        // user_orders channel — fill notifications
-        "user_order" | "order" | "fill" => {
+        // fill channel — actual execution fills (correct field names)
+        "fill" => {
+            let payload = body.unwrap_or(&msg);
+            mm.on_ws_fill(payload).await;
+        }
+
+        // user_order / order — cancel/reject notifications
+        "user_order" | "order" => {
             let payload = body.unwrap_or(&msg);
             mm.on_user_order(payload).await;
         }

@@ -54,11 +54,11 @@ impl MmConfig {
             ask_offset_cents: parse_env("MM_ASK_OFFSET_CENTS", "1").parse().unwrap_or(1),
             order_size: parse_env("MM_ORDER_SIZE", "10").parse().unwrap_or(10),
             max_positions: parse_env("MM_MAX_POSITIONS", "5").parse().unwrap_or(5),
-            daily_loss_limit: parse_env("MM_DAILY_LOSS_LIMIT", "1000").parse().unwrap_or(1000.0),
+            daily_loss_limit: parse_env("MM_DAILY_LOSS_LIMIT", "15").parse().unwrap_or(15.0),
             dry_run: std::env::var("MM_DRY_RUN").map(|v| v != "0").unwrap_or(true),
             balance_reserve: parse_env("MM_BALANCE_RESERVE", "50").parse().unwrap_or(50.0),
             buy_timeout_secs: parse_env("MM_BUY_TIMEOUT_SECS", "120").parse().unwrap_or(120),
-            max_exposure: parse_env("MM_MAX_EXPOSURE", "30").parse().unwrap_or(30.0),
+            max_exposure: parse_env("MM_MAX_EXPOSURE", "15").parse().unwrap_or(15.0),
         }
     }
 }
@@ -459,13 +459,83 @@ impl MarketMaker {
         };
 
         if let Some(ticker) = ticker {
-            if status == "filled" {
-                self.on_fill(&ticker, payload).await;
-            } else if status == "canceled" || status == "rejected" {
+            if status == "canceled" || status == "rejected" {
                 // Remove from pending buy orders (no-op if it was a sell order)
                 self.pending_orders.lock().await.remove(&ticker);
                 self.order_to_ticker.lock().await.remove(order_id);
             }
+        }
+    }
+
+    /// Handle a message from the `fill` WebSocket channel.
+    ///
+    /// Fill message format:
+    /// ```json
+    /// {
+    ///   "type": "fill",
+    ///   "msg": {
+    ///     "order_id": "ee587a1c-...",
+    ///     "market_ticker": "HIGHNY-22DEC23-B53.5",
+    ///     "side": "yes",
+    ///     "yes_price": 75,
+    ///     "count": 278,
+    ///     "action": "buy",
+    ///     "is_taker": true,
+    ///     "trade_id": "...",
+    ///     "ts": 1671899397
+    ///   }
+    /// }
+    /// ```
+    pub async fn on_ws_fill(&self, payload: &serde_json::Value) {
+        let order_id = payload.get("order_id").and_then(|v| v.as_str()).unwrap_or("");
+        let ticker   = payload.get("market_ticker").and_then(|v| v.as_str()).unwrap_or("");
+        let side_str = payload.get("side").and_then(|v| v.as_str()).unwrap_or("");
+        let price    = payload.get("yes_price").and_then(|v| v.as_i64()).unwrap_or(0);
+        let qty      = payload.get("count").and_then(|v| v.as_i64()).unwrap_or(0);
+        let action   = payload.get("action").and_then(|v| v.as_str()).unwrap_or("");
+
+        if order_id.is_empty() || ticker.is_empty() || qty == 0 {
+            return;
+        }
+
+        // Verify we know this order (ignore fills for orders we didn't place)
+        let known = {
+            let order_map = self.order_to_ticker.lock().await;
+            order_map.contains_key(order_id)
+        };
+        if !known {
+            return;
+        }
+
+        if action == "buy" {
+            info!(
+                "[MM-FILL] BUY filled: {} {}x @ {}¢ order={}",
+                ticker, qty, price, order_id
+            );
+
+            // Build a synthetic payload that on_fill understands
+            let synthetic = serde_json::json!({
+                "order_id":     order_id,
+                "filled_count": qty,
+                "filled_price": price,
+                "side":         side_str,
+            });
+            self.on_fill(ticker, &synthetic).await;
+        } else if action == "sell" {
+            info!(
+                "[MM-FILL] SELL filled: {} {}x @ {}¢ order={}",
+                ticker, qty, price, order_id
+            );
+
+            // Build a synthetic payload that on_fill understands (position lookup
+            // inside on_fill will find the existing position and close it)
+            let synthetic = serde_json::json!({
+                "order_id":     order_id,
+                "filled_count": qty,
+                "filled_price": price,
+                "side":         side_str,
+            });
+            self.on_fill(ticker, &synthetic).await;
         }
     }
 
@@ -679,6 +749,11 @@ impl MarketMaker {
         let meta_map = self.market_meta.read().await;
 
         for (ticker, book) in books.iter() {
+            // Skip short-duration crypto markets — too fast, too noisy
+            if ticker.contains("15M") || ticker.contains("5M") || ticker.contains("1M") {
+                continue;
+            }
+
             if !book.is_warm() {
                 continue;
             }
@@ -738,8 +813,7 @@ impl MarketMaker {
                 && yes_bid_px <= 85
             {
                 let depth = yes_bid_qty.min(yes_ask_qty);
-                let base_score = depth * yes_spread;
-                let score = (base_score as f64 * recency_boost) as i64;
+                let score = (depth as f64 * (yes_spread as f64).powf(1.5) * recency_boost) as i64;
 
                 opportunities.push(SpreadOpportunity {
                     ticker: ticker.clone(),
@@ -762,8 +836,7 @@ impl MarketMaker {
                     && no_bid_px <= 85
                 {
                     let depth = no_bid_qty.min(no_ask_qty);
-                    let base_score = depth * no_spread;
-                    let score = (base_score as f64 * recency_boost) as i64;
+                    let score = (depth as f64 * (no_spread as f64).powf(1.5) * recency_boost) as i64;
 
                     opportunities.push(SpreadOpportunity {
                         ticker: ticker.clone(),
@@ -805,15 +878,8 @@ impl MarketMaker {
         // Guard: ensure sell > buy even when offsets eat into a narrow spread
         let sell_price = sell_price.max(buy_price + 1);
 
-        // ── Capital exposure check ────────────────────────────────────────────
+        // ── Capital exposure check (filled positions only) ────────────────────
         {
-            let pending_exposure: f64 = {
-                let pending = self.pending_orders.lock().await;
-                pending
-                    .values()
-                    .map(|(q, _)| (q.bid_price * q.size) as f64 / 100.0)
-                    .sum()
-            };
             let position_exposure: f64 = {
                 let positions = self.positions.lock().await;
                 positions
@@ -822,10 +888,10 @@ impl MarketMaker {
                     .sum()
             };
             let new_order_cost = (buy_price * self.config.order_size) as f64 / 100.0;
-            let total_exposure = pending_exposure + position_exposure + new_order_cost;
+            let total_exposure = position_exposure + new_order_cost;
             if total_exposure > self.config.max_exposure {
                 info!(
-                    "[MM] Skipping {} — exposure ${:.2} would exceed ${:.2} limit",
+                    "[MM] Skipping {} — position exposure ${:.2} would exceed ${:.2} limit",
                     opp.ticker, total_exposure, self.config.max_exposure
                 );
                 return;
