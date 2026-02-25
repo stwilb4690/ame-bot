@@ -13,6 +13,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::kalshi::KalshiApiClient;
 use crate::telegram::TelegramClient;
+use crate::types::kalshi_maker_fee_cents;
 
 // ─── Side Enum ───────────────────────────────────────────────────────────────
 
@@ -75,17 +76,17 @@ impl MmConfig {
         };
 
         Self {
-            min_spread_cents: parse_env("MM_MIN_SPREAD_CENTS", "2").parse().unwrap_or(2),
+            min_spread_cents: parse_env("MM_MIN_SPREAD_CENTS", "3").parse().unwrap_or(3),
             min_net_spread_cents: parse_env("MM_MIN_NET_SPREAD_CENTS", "1").parse().unwrap_or(1),
             bid_offset_cents: parse_env("MM_BID_OFFSET_CENTS", "1").parse().unwrap_or(1),
             ask_offset_cents: parse_env("MM_ASK_OFFSET_CENTS", "1").parse().unwrap_or(1),
             order_size: parse_env("MM_ORDER_SIZE", "10").parse().unwrap_or(10),
-            max_positions: parse_env("MM_MAX_POSITIONS", "5").parse().unwrap_or(5),
+            max_positions: parse_env("MM_MAX_POSITIONS", "6").parse().unwrap_or(6),
             daily_loss_limit: parse_env("MM_DAILY_LOSS_LIMIT", "15").parse().unwrap_or(15.0),
             dry_run: std::env::var("MM_DRY_RUN").map(|v| v != "0").unwrap_or(true),
             balance_reserve: parse_env("MM_BALANCE_RESERVE", "50").parse().unwrap_or(50.0),
-            buy_timeout_secs: parse_env("MM_BUY_TIMEOUT_SECS", "120").parse().unwrap_or(120),
-            max_exposure: parse_env("MM_MAX_EXPOSURE", "15").parse().unwrap_or(15.0),
+            buy_timeout_secs: parse_env("MM_BUY_TIMEOUT_SECS", "60").parse().unwrap_or(60),
+            max_exposure: parse_env("MM_MAX_EXPOSURE", "40").parse().unwrap_or(40.0),
         }
     }
 }
@@ -385,6 +386,7 @@ pub struct SpreadOpportunity {
     pub entry_price: i64,
     pub exit_price: i64,
     pub spread: i64,
+    pub depth: i64,
     pub score: i64,
     pub recency_secs: u64,
 }
@@ -767,6 +769,11 @@ impl MarketMaker {
             event.fill_price = Some(filled_price);
             self.log_event(event).await;
 
+            // Compute true breakeven: fill price + buy-side maker fee already paid.
+            // The fade logic must never lower the sell below this floor.
+            let buy_fee = kalshi_maker_fee_cents(filled_price as u16) as i64;
+            let true_breakeven = filled_price + buy_fee;
+
             // Immediately place a resting sell order at the target ask
             if !self.config.dry_run {
                 let client_order_id = format!(
@@ -781,7 +788,7 @@ impl MarketMaker {
                         "sell",
                         side_str,
                         target_exit,
-                        self.config.order_size as u32,
+                        filled_qty as u32,
                         &client_order_id,
                     )
                     .await
@@ -804,7 +811,7 @@ impl MarketMaker {
                             SellState {
                                 order_id: sell_order_id,
                                 ask_price: target_exit,
-                                entry_price: filled_price, // breakeven floor
+                                entry_price: true_breakeven, // fee-aware breakeven floor
                                 qty: filled_qty,
                                 placed_time: Instant::now(),
                                 last_fade: Instant::now(),
@@ -829,7 +836,7 @@ impl MarketMaker {
                     SellState {
                         order_id: "dry_run".to_string(),
                         ask_price: target_exit,
-                        entry_price: filled_price,
+                        entry_price: true_breakeven, // fee-aware breakeven floor
                         qty: filled_qty,
                         placed_time: Instant::now(),
                         last_fade: Instant::now(),
@@ -955,17 +962,13 @@ impl MarketMaker {
                 None => continue,
             };
 
-            // Recency boost
+            // Hard recency filter: skip stale books with no activity in 30s.
+            // These are phantom spreads with no active counterparties.
             let secs_since_activity = book.seconds_since_activity();
-            let recency_boost = if secs_since_activity <= 60 {
-                10.0
-            } else if secs_since_activity <= 300 {
-                5.0
-            } else if secs_since_activity <= 1800 {
-                2.0
-            } else {
-                0.1
-            };
+            if secs_since_activity > 30 {
+                continue;
+            }
+            let recency_boost = 10.0_f64;
 
             // Volume factor: log2(1 + volume/1000), default 1.0 if unknown
             let volume_factor = meta_map
@@ -981,23 +984,30 @@ impl MarketMaker {
                 && yes_bid_px >= 15
                 && yes_bid_px <= 85
             {
-                let depth = yes_bid_qty.min(yes_ask_qty) as f64;
-                // score = spread^1.5 * log2(1+depth) * recency_boost * volume_factor
-                let score = ((yes_spread as f64).powf(1.5)
-                    * (1.0 + depth).log2()
-                    * recency_boost
-                    * volume_factor
-                    * 1000.0) as i64;
+                // Fee-aware net profit check: only trade if spread covers both legs' fees
+                let buy_fee = kalshi_maker_fee_cents((yes_bid_px + 1) as u16) as i64;
+                let sell_fee = kalshi_maker_fee_cents((yes_ask_px - 1) as u16) as i64;
+                let net_spread = yes_spread - buy_fee - sell_fee;
+                if net_spread >= self.config.min_net_spread_cents {
+                    let depth = yes_bid_qty.min(yes_ask_qty) as f64;
+                    // score = spread^1.5 * log2(1+depth) * recency_boost * volume_factor
+                    let score = ((yes_spread as f64).powf(1.5)
+                        * (1.0 + depth).log2()
+                        * recency_boost
+                        * volume_factor
+                        * 1000.0) as i64;
 
-                opportunities.push(SpreadOpportunity {
-                    ticker: ticker.clone(),
-                    side: Side::Yes,
-                    entry_price: yes_bid_px,
-                    exit_price: yes_ask_px,
-                    spread: yes_spread,
-                    score,
-                    recency_secs: secs_since_activity,
-                });
+                    opportunities.push(SpreadOpportunity {
+                        ticker: ticker.clone(),
+                        side: Side::Yes,
+                        entry_price: yes_bid_px,
+                        exit_price: yes_ask_px,
+                        spread: yes_spread,
+                        depth: yes_bid_qty.min(yes_ask_qty),
+                        score,
+                        recency_secs: secs_since_activity,
+                    });
+                }
             }
 
             // NO side same-side spread (only if NO book is populated)
@@ -1010,41 +1020,40 @@ impl MarketMaker {
                     && no_bid_px >= 15
                     && no_bid_px <= 85
                 {
-                    let depth = no_bid_qty.min(no_ask_qty) as f64;
-                    let score = ((no_spread as f64).powf(1.5)
-                        * (1.0 + depth).log2()
-                        * recency_boost
-                        * volume_factor
-                        * 1000.0) as i64;
+                    // Fee-aware net profit check
+                    let buy_fee = kalshi_maker_fee_cents((no_bid_px + 1) as u16) as i64;
+                    let sell_fee = kalshi_maker_fee_cents((no_ask_px - 1) as u16) as i64;
+                    let net_spread = no_spread - buy_fee - sell_fee;
+                    if net_spread >= self.config.min_net_spread_cents {
+                        let depth = no_bid_qty.min(no_ask_qty) as f64;
+                        let score = ((no_spread as f64).powf(1.5)
+                            * (1.0 + depth).log2()
+                            * recency_boost
+                            * volume_factor
+                            * 1000.0) as i64;
 
-                    opportunities.push(SpreadOpportunity {
-                        ticker: ticker.clone(),
-                        side: Side::No,
-                        entry_price: no_bid_px,
-                        exit_price: no_ask_px,
-                        spread: no_spread,
-                        score,
-                        recency_secs: secs_since_activity,
-                    });
+                        opportunities.push(SpreadOpportunity {
+                            ticker: ticker.clone(),
+                            side: Side::No,
+                            entry_price: no_bid_px,
+                            exit_price: no_ask_px,
+                            spread: no_spread,
+                            depth: no_bid_qty.min(no_ask_qty),
+                            score,
+                            recency_secs: secs_since_activity,
+                        });
+                    }
                 }
             }
         }
 
         opportunities.sort_by(|a, b| b.score.cmp(&a.score));
 
-        // Deduplicate by event prefix (everything before the last hyphen segment).
-        // After sorting, the first occurrence of each event key is the best-scoring.
-        let mut seen_events = std::collections::HashSet::new();
-        opportunities.retain(|opp| {
-            let event_key = if let Some(pos) = opp.ticker.rfind('-') {
-                opp.ticker[..pos].to_string()
-            } else {
-                opp.ticker.clone()
-            };
-            seen_events.insert(event_key)
-        });
+        // No event-prefix dedup — allow multiple market types per game
+        // (moneyline, spread, total) to increase quoting volume.
+        // The max_positions cap already limits total exposure.
 
-        opportunities.truncate(10);
+        opportunities.truncate(15);
         opportunities
     }
 
@@ -1059,17 +1068,18 @@ impl MarketMaker {
             Side::No => "no",
         };
 
-        // 15% of spread, floored by per-side config values
-        let scaled_offset = ((opp.spread as f64) * 0.15).round() as i64;
-        let bid_offset = scaled_offset.max(self.config.bid_offset_cents);
-        let ask_offset = scaled_offset.max(self.config.ask_offset_cents);
+        // Buy at bid + 1¢ to stay on the maker side of the book.
+        // Midpoint buying was crossing the spread and getting taker fills.
+        let buy_price = (opp.entry_price + 1).max(1).min(99);
 
-        // entry_price = best bid; buy inside the spread (above the bid)
-        let buy_price = (opp.entry_price + bid_offset).max(1).min(99);
-        // exit_price = best ask; sell inside the spread (below the ask)
+        // Sell inside the ask by 1¢ (or ask_offset if configured higher)
+        let ask_offset = self.config.ask_offset_cents;
         let sell_price = (opp.exit_price - ask_offset).max(1).min(99);
         // Guard: ensure sell > buy even when offsets eat into a narrow spread
         let sell_price = sell_price.max(buy_price + 1);
+
+        // Depth-aware sizing: don't place more contracts than the book can absorb
+        let effective_size = self.config.order_size.min(opp.depth).max(1);
 
         // ── Capital exposure check (filled positions + pending resting orders) ──
         {
@@ -1087,7 +1097,7 @@ impl MarketMaker {
                     .map(|(q, _)| (q.bid_price * q.size) as f64 / 100.0)
                     .sum()
             };
-            let new_order_cost = (buy_price * self.config.order_size) as f64 / 100.0;
+            let new_order_cost = (buy_price * effective_size) as f64 / 100.0;
             let total_exposure = position_exposure + pending_exposure + new_order_cost;
             if total_exposure > self.config.max_exposure {
                 info!(
@@ -1095,7 +1105,7 @@ impl MarketMaker {
                     opp.ticker, total_exposure, position_exposure, pending_exposure, new_order_cost, self.config.max_exposure
                 );
                 self.record_skip("exposure_cap").await;
-                let mut event = self.make_event("order_skipped", &opp.ticker, side_str, buy_price, self.config.order_size, "").await;
+                let mut event = self.make_event("order_skipped", &opp.ticker, side_str, buy_price, effective_size, "").await;
                 event.skip_reason = Some("exposure_cap".to_string());
                 self.log_event(event).await;
                 return;
@@ -1115,7 +1125,7 @@ impl MarketMaker {
                 "buy",
                 side_str,
                 buy_price,
-                self.config.order_size as u32,
+                effective_size as u32,
                 &client_order_id,
             )
             .await
@@ -1129,13 +1139,14 @@ impl MarketMaker {
                     .to_string();
 
                 info!(
-                    "[MM-QUOTE] {} {} | buy={}¢ sell={}¢ spread={}¢ size={} | order_id={}",
+                    "[MM-QUOTE] {} {} | buy={}¢ sell={}¢ spread={}¢ size={} depth={} | order_id={}",
                     opp.ticker,
                     if opp.side == Side::Yes { "YES" } else { "NO" },
                     buy_price,
                     sell_price,
                     opp.spread,
-                    self.config.order_size,
+                    effective_size,
+                    opp.depth,
                     order_id,
                 );
 
@@ -1143,7 +1154,7 @@ impl MarketMaker {
                     ticker: opp.ticker.clone(),
                     bid_price: buy_price,
                     ask_price: sell_price,
-                    size: self.config.order_size,
+                    size: effective_size,
                 };
 
                 let mut pending = self.pending_orders.lock().await;
@@ -1151,7 +1162,7 @@ impl MarketMaker {
                 pending.insert(opp.ticker.clone(), (quote, Instant::now()));
                 order_map.insert(order_id.clone(), opp.ticker.clone());
 
-                let mut event = self.make_event("order_placed", &opp.ticker, side_str, buy_price, self.config.order_size, &order_id).await;
+                let mut event = self.make_event("order_placed", &opp.ticker, side_str, buy_price, effective_size, &order_id).await;
                 event.entry_price = Some(sell_price);
                 self.log_event(event).await;
             }
@@ -1162,43 +1173,110 @@ impl MarketMaker {
     }
 
     /// Cancel stale buy orders (> `MM_BUY_TIMEOUT_SECS`).
-    /// Fade resting sell orders: lower ask 1¢ every 15s after 60s, floor = breakeven.
+    /// Reprice buy orders every 30s if the market has moved.
+    /// Fade resting sell orders: lower ask after 20s, floor = entry_price + 1.
     /// Force-exit sell orders at breakeven after `MM_BUY_TIMEOUT_SECS`.
     pub async fn check_timeouts(&self) {
         let buy_timeout = Duration::from_secs(self.config.buy_timeout_secs);
-        const FADE_START: Duration = Duration::from_secs(60);
-        const FADE_INTERVAL: Duration = Duration::from_secs(15);
+        const BUY_REPRICE_INTERVAL: Duration = Duration::from_secs(30);
 
-        // ── Buy order timeouts ────────────────────────────────────────────────
-        let to_cancel_buy: Vec<String> = {
+        // ── Buy order repricing + timeouts ──────────────────────────────────
+        let pending_snap: Vec<(String, i64, i64, i64, Instant)> = {
             let pending = self.pending_orders.lock().await;
             pending
                 .iter()
-                .filter(|(_, (_, ts))| ts.elapsed() > buy_timeout)
-                .map(|(ticker, _)| ticker.clone())
+                .map(|(ticker, (q, ts))| (ticker.clone(), q.bid_price, q.ask_price, q.size, *ts))
                 .collect()
         };
 
-        for ticker in to_cancel_buy {
-            // Find the specific order_id for this ticker before removing it
-            let order_id = {
-                let order_map = self.order_to_ticker.lock().await;
-                order_map.iter()
-                    .find(|(_, v)| v.as_str() == ticker.as_str())
-                    .map(|(k, _)| k.clone())
-            };
-            self.pending_orders.lock().await.remove(&ticker);
-            if let Some(ref oid) = order_id {
-                self.order_to_ticker.lock().await.remove(oid);
-                warn!("[MM-TIMEOUT] Buy order for {} timed out — canceling order {}", ticker, oid);
-                if let Err(e) = self.kalshi_api.cancel_order(oid).await {
-                    debug!("[MM-TIMEOUT] Cancel {} ignored (may have already filled): {}", oid, e);
+        for (ticker, old_bid, old_ask, old_size, placed_at) in pending_snap {
+            // Hard timeout — cancel and move on
+            if placed_at.elapsed() > buy_timeout {
+                let order_id = {
+                    let order_map = self.order_to_ticker.lock().await;
+                    order_map.iter()
+                        .find(|(_, v)| v.as_str() == ticker.as_str())
+                        .map(|(k, _)| k.clone())
+                };
+                self.pending_orders.lock().await.remove(&ticker);
+                if let Some(ref oid) = order_id {
+                    self.order_to_ticker.lock().await.remove(oid);
+                    warn!("[MM-TIMEOUT] Buy order for {} timed out — canceling order {}", ticker, oid);
+                    if let Err(e) = self.kalshi_api.cancel_order(oid).await {
+                        debug!("[MM-TIMEOUT] Cancel {} ignored (may have already filled): {}", oid, e);
+                    }
+                } else {
+                    warn!("[MM-TIMEOUT] Buy order for {} timed out — no order_id found, skipping cancel", ticker);
                 }
-            } else {
-                warn!("[MM-TIMEOUT] Buy order for {} timed out — no order_id found, skipping cancel", ticker);
+                let event = self.make_event("buy_timeout", &ticker, "", 0, 0, order_id.as_deref().unwrap_or("")).await;
+                self.log_event(event).await;
+                continue;
             }
-            let event = self.make_event("buy_timeout", &ticker, "", 0, 0, order_id.as_deref().unwrap_or("")).await;
-            self.log_event(event).await;
+
+            // Mid-life reprice — if 30s+ old and market moved, cancel and re-place at fresh mid
+            if placed_at.elapsed() >= BUY_REPRICE_INTERVAL && !self.config.dry_run {
+                let fresh_mid = {
+                    let books = self.books.lock().await;
+                    books.get(&ticker).and_then(|b| {
+                        let bid = b.best_yes_bid().map(|(p, _)| p)?;
+                        let ask = b.best_yes_ask().map(|(p, _)| p)?;
+                        Some((bid + ask) / 2)
+                    })
+                };
+                if let Some(new_mid) = fresh_mid {
+                    // Only reprice if price shifted by 2+ cents
+                    if (new_mid - old_bid).abs() >= 2 {
+                        let order_id = {
+                            let order_map = self.order_to_ticker.lock().await;
+                            order_map.iter()
+                                .find(|(_, v)| v.as_str() == ticker.as_str())
+                                .map(|(k, _)| k.clone())
+                        };
+                        if let Some(ref oid) = order_id {
+                            let _ = self.kalshi_api.cancel_order(oid).await;
+                            self.order_to_ticker.lock().await.remove(oid);
+                        }
+                        self.pending_orders.lock().await.remove(&ticker);
+
+                        let new_buy = new_mid.max(1).min(99);
+                        let client_order_id = format!(
+                            "mm_repbuy_{}_{}",
+                            ticker,
+                            self.start_time.elapsed().as_secs()
+                        );
+                        let side_str = "yes"; // TODO: track side in pending_orders
+                        match self
+                            .kalshi_api
+                            .place_post_only_limit(&ticker, "buy", side_str, new_buy, old_size as u32, &client_order_id)
+                            .await
+                        {
+                            Ok(resp) => {
+                                let new_oid = resp
+                                    .get("order")
+                                    .and_then(|o| o.get("order_id"))
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("unknown")
+                                    .to_string();
+                                info!(
+                                    "[MM-REPRICE-BUY] {} old={}¢ new={}¢ order={}",
+                                    ticker, old_bid, new_buy, new_oid
+                                );
+                                let quote = QuoteRequest {
+                                    ticker: ticker.clone(),
+                                    bid_price: new_buy,
+                                    ask_price: old_ask,
+                                    size: old_size,
+                                };
+                                self.pending_orders.lock().await.insert(ticker.clone(), (quote, Instant::now()));
+                                self.order_to_ticker.lock().await.insert(new_oid, ticker.clone());
+                            }
+                            Err(e) => {
+                                warn!("[MM-REPRICE-BUY] Failed to re-place buy for {}: {}", ticker, e);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // ── Sell order fade + force-exit ──────────────────────────────────────
@@ -1327,10 +1405,12 @@ impl MarketMaker {
                     .map(|b| b.seconds_since_activity() <= 60)
                     .unwrap_or(false)
             };
+            // Slower fade: give the sell order more time at the profitable price
+            // before starting to lower. Avoids eroding spread profit too fast.
             let (fade_start, fade_interval, fade_step) = if is_live {
-                (Duration::from_secs(10), Duration::from_secs(5), 2i64)
+                (Duration::from_secs(30), Duration::from_secs(15), 1i64)
             } else {
-                (FADE_START, FADE_INTERVAL, 1i64)
+                (Duration::from_secs(45), Duration::from_secs(20), 1i64)
             };
 
             if state.placed_time.elapsed() > fade_start
