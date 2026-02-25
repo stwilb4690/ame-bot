@@ -1298,6 +1298,46 @@ impl MarketMaker {
             let Some(side) = side else { continue };
             let side_str = if side == Side::Yes { "yes" } else { "no" };
 
+            // ── Breakeven stop-loss: if market bid <= our breakeven, IOC exit immediately ──
+            {
+                let current_bid = {
+                    let books_guard = self.books.lock().await;
+                    books_guard.get(&ticker).and_then(|b| b.best_bid_for_side(side))
+                };
+                if let Some(bid) = current_bid {
+                    let sell_fee = kalshi_maker_fee_cents(bid as u16) as i64;
+                    let net_proceeds = bid - sell_fee;
+                    if net_proceeds <= state.entry_price {
+                        warn!(
+                            "[MM-STOPLOSS] {} bid={}¢ net={}¢ <= breakeven={}¢ — exiting immediately",
+                            ticker, bid, net_proceeds, state.entry_price
+                        );
+                        if !self.config.dry_run {
+                            let _ = self.kalshi_api.cancel_order(&state.order_id).await;
+                            match self.kalshi_api.sell_ioc(&ticker, side_str, bid, state.qty).await {
+                                Ok(resp) => {
+                                    info!(
+                                        "[MM-STOPLOSS] {} IOC sell at {}¢ filled={}",
+                                        ticker, bid, resp.order.filled_count()
+                                    );
+                                }
+                                Err(e) => {
+                                    error!("[MM-STOPLOSS] IOC sell failed for {}: {}", ticker, e);
+                                }
+                            }
+                        }
+                        self.sell_states.lock().await.remove(&ticker);
+                        self.positions.lock().await.remove(&ticker);
+                        self.order_to_ticker.lock().await.retain(|_, v| v != &ticker);
+
+                        let mut event = self.make_event("stop_loss", &ticker, side_str, bid, state.qty, &state.order_id).await;
+                        event.entry_price = Some(state.entry_price);
+                        self.log_event(event).await;
+                        continue;
+                    }
+                }
+            }
+
             // Immediate reprice: if our sell is above current market ask, reprice now
             {
                 let current_best_ask = {
@@ -1489,7 +1529,7 @@ impl MarketMaker {
     /// Kill switch: if any position has moved >10¢ adversely, cancel all orders
     /// and attempt to exit at market (IOC sell near breakeven).
     async fn check_kill_switch(&self) {
-        const KILL_CENTS: i64 = 10;
+        const KILL_CENTS: i64 = 5;
 
         let positions_snap: Vec<(String, Side, i64, i64)> = {
             let positions = self.positions.lock().await;
