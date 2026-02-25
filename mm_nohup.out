@@ -1,11 +1,29 @@
-[2m2026-02-24T22:16:57.573456Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m 🏦 AME Market Maker v2.0.0
-[2m2026-02-24T22:16:57.573747Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m    Env: prod
-[2m2026-02-24T22:16:57.573840Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m    Kalshi API: https://api.elections.kalshi.com/trade-api/v2
-[2m2026-02-24T22:16:57.573884Z[0m [33m WARN[0m [2mmarket_maker[0m[2m:[0m    [LIVE] live Kalshi orders ENABLED
-[2m2026-02-24T22:16:57.573894Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m    min_spread=5¢  min_net_spread=2¢  bid_offset=+1¢  ask_offset=-1¢  order_size=15  max_positions=3  daily_limit=$15.00
-[2m2026-02-24T22:16:57.574458Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [KALSHI] API key loaded
-[2m2026-02-24T22:16:57.812759Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [KALSHI] Balance: $157.54
-[2m2026-02-24T22:16:57.812935Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [TELEGRAM] Configured
-[2m2026-02-24T22:16:57.812970Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] Discovering sports markets...
-[2m2026-02-24T22:16:57.813030Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Fetching 45 series in parallel (max 5 concurrent, 5s timeout each)
-[2m2026-02-24T22:17:19.746301Z[0m [33m WARN[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Series KXUELGAME timed out — skipping
+[2m2026-02-24T22:31:03.473067Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m 🏦 AME Market Maker v2.0.0
+[2m2026-02-24T22:31:03.473350Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m    Env: prod
+[2m2026-02-24T22:31:03.473424Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m    Kalshi API: https://api.elections.kalshi.com/trade-api/v2
+[2m2026-02-24T22:31:03.473466Z[0m [33m WARN[0m [2mmarket_maker[0m[2m:[0m    [LIVE] live Kalshi orders ENABLED
+[2m2026-02-24T22:31:03.473475Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m    min_spread=5¢  min_net_spread=2¢  bid_offset=+1¢  ask_offset=-1¢  order_size=15  max_positions=3  daily_limit=$15.00
+[2m2026-02-24T22:31:03.474057Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [KALSHI] API key loaded
+[2m2026-02-24T22:31:03.693952Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [KALSHI] Balance: $157.54
+[2m2026-02-24T22:31:03.694110Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [TELEGRAM] Configured
+[2m2026-02-24T22:31:03.694195Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] Discovering sports markets...
+[2m2026-02-24T22:31:03.694413Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Fetching 45 series in parallel (max 5 concurrent, 5s timeout each)
+[2m2026-02-24T22:31:25.542266Z[0m [33m WARN[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Series KXUELGAME timed out — skipping
+[2m2026-02-24T22:31:43.166382Z[0m [33m WARN[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Series KXETH15M timed out — skipping
+[2m2026-02-24T22:31:43.166492Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Discovered 719 live markets (1294 fetched across 45 series)
+[2m2026-02-24T22:31:43.167215Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] Running. Press Ctrl+C to stop.
+[2m2026-02-24T22:31:43.167299Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] 15s warmup — waiting for order book snapshots
+[2m2026-02-24T22:31:43.168581Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] HEARTBEAT | mode=live pnl=0.00 positions=0 pending=0 exposure=$-0.00 trades=0 books=0 uptime=0s
+[2m2026-02-24T22:31:43.400317Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Connected (719  tickers)
+[2m2026-02-24T22:31:43.400802Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Subscribed to orderbook_delta + fill
+[2m2026-02-24T22:31:43.460569Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS-DEBUG] type=subscribed body={"channel":"orderbook_delta","sid":2}
+[2m2026-02-24T22:31:43.460680Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Control msg: {"type":"subscribed","id":1,"msg":{"channel":"orderbook_delta","sid":2}}
+
+[2m2026-02-24T22:31:43.472489Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS-DEBUG] type=subscribed body={"channel":"fill","sid":1}
+[2m2026-02-24T22:31:43.472568Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Control msg: {"type":"subscribed","id":2,"msg":{"channel":"fill","sid":1}}
+
+[2m2026-02-24T22:31:58.170389Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] Starting scan loop (2s cadence)
+[2m2026-02-24T22:31:58.172824Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNHLTOTAL-26FEB26CBJBOS-6 spread=22¢ score=5793771 (boost=10.0x, active 14s ago)
+[2m2026-02-24T22:31:58.216165Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXNHLTOTAL-26FEB26CBJBOS-6 YES | buy=45¢ sell=61¢ spread=22¢ size=15 | order_id=cd3ab58d-4963-4c8c-a8d1-af7e08a311ec
+[2m2026-02-25T00:01:25.605945Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS-DEBUG] type=fill body={"action":"buy","client_order_id":"mm_KXNBAGAME-26FEB24OKCTOR-TOR_759","count":15,"count_fp":"15.00","fee_cost":"0.0700","is_taker":false,"market_ticker":"KXNBAGAME-26FEB24OKCTOR-TOR","order_id":"7229b96b-02a3-4135-bab2-4a3f6e8d3f65","post_position":15,"post_position_fp":"15.00","purchased_side":"yes","side":"yes","subaccount":0,"trade_id":"991b4098-7c5a-50eb-1de0-f564f46fa8e5","ts":1771977685,"yes_price":53,"yes_price_dollars":"0.5300"}
+[2m2026-02-25T00:01:25.607662Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-FILL] Raw fill payload: {"action":"buy","client_order_id":"mm_KXNBAGAME-26FEB24OKCTOR-TOR_759","count":15,"count_fp":"15.00","fee_cost":"0.0700","is_taker":false,"market_ticker":"KXNBAGAME-26FEB24OKCTOR-TOR","order_id":"7229b96b-02a3-4135-bab2-4a3f6e8d3f65","post_position":15,"post_position_fp":"15.00","purchased_side":"yes","side":"yes","subaccount":0,"trade_id":"991b4098-7c5a-50eb-1de0-f564f46fa8e5","ts":1771977685,"yes_price":53,"yes_price_dollars":"0.5300"}

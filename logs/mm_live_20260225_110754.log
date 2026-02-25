@@ -1,0 +1,26 @@
+[2m2026-02-25T16:07:54.574162Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m 🏦 AME Market Maker v2.0.0
+[2m2026-02-25T16:07:54.574287Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m    Env: prod
+[2m2026-02-25T16:07:54.574308Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m    Kalshi API: https://api.elections.kalshi.com/trade-api/v2
+[2m2026-02-25T16:07:54.574327Z[0m [33m WARN[0m [2mmarket_maker[0m[2m:[0m    [LIVE] live Kalshi orders ENABLED
+[2m2026-02-25T16:07:54.574334Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m    min_spread=5¢  min_net_spread=2¢  bid_offset=+1¢  ask_offset=-1¢  order_size=5  max_positions=3  daily_limit=$15.00
+[2m2026-02-25T16:07:54.574712Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [KALSHI] API key loaded
+[2m2026-02-25T16:07:54.795016Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [KALSHI] Balance: $161.93
+[2m2026-02-25T16:07:54.795162Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [TELEGRAM] Configured
+[2m2026-02-25T16:07:54.795195Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] Discovering sports markets...
+[2m2026-02-25T16:07:54.795243Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Fetching 45 series in parallel (max 5 concurrent, 5s timeout each)
+[2m2026-02-25T16:08:16.675631Z[0m [33m WARN[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Series KXUCLSPREAD timed out — skipping
+[2m2026-02-25T16:08:33.435402Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-DISC] Discovered 732 live markets (1312 fetched across 45 series)
+[2m2026-02-25T16:08:33.435854Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] 15s warmup — waiting for order book snapshots
+[2m2026-02-25T16:08:33.435901Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] Running. Press Ctrl+C to stop.
+[2m2026-02-25T16:08:33.436784Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] HEARTBEAT | mode=live pnl=0.00 positions=0 pending=0 exposure=$-0.00 trades=0 books=0 uptime=0s
+[2m2026-02-25T16:08:33.662980Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Connected (732  tickers)
+[2m2026-02-25T16:08:33.663515Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Subscribed to orderbook_delta + fill
+[2m2026-02-25T16:08:33.720483Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS-DEBUG] type=subscribed body={"channel":"orderbook_delta","sid":2}
+[2m2026-02-25T16:08:33.720575Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Control msg: {"type":"subscribed","id":1,"msg":{"channel":"orderbook_delta","sid":2}}
+
+[2m2026-02-25T16:08:33.720610Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS-DEBUG] type=subscribed body={"channel":"fill","sid":1}
+[2m2026-02-25T16:08:33.720633Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM-WS] Control msg: {"type":"subscribed","id":2,"msg":{"channel":"fill","sid":1}}
+
+[2m2026-02-25T16:08:48.438713Z[0m [32m INFO[0m [2mmarket_maker[0m[2m:[0m [MM] Starting scan loop (2s cadence)
+[2m2026-02-25T16:08:48.440543Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-OPP] KXNBAGAME-26FEB27CLEDET-CLE spread=23¢ score=5122364 (boost=10.0x, active 5s ago)
+[2m2026-02-25T16:08:48.481367Z[0m [32m INFO[0m [2mame_bot::market_maker[0m[2m:[0m [MM-QUOTE] KXNBAGAME-26FEB27CLEDET-CLE YES | buy=24¢ sell=41¢ spread=23¢ size=5 | order_id=ed1adeb4-593f-42a7-8730-ecc734a0ee1b
