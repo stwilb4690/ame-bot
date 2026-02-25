@@ -671,6 +671,12 @@ impl MarketMaker {
             }
             self.total_trades_today.fetch_add(1, Ordering::Relaxed);
 
+            // Read fades/reprices BEFORE removing sell_states
+            let (fades, reprices) = {
+                let ss = self.sell_states.lock().await;
+                ss.get(ticker).map(|s| (s.fades, s.reprices)).unwrap_or((0, 0))
+            };
+
             self.positions.lock().await.remove(ticker);
             self.sell_states.lock().await.remove(ticker);
             if !order_id_str.is_empty() {
@@ -678,19 +684,16 @@ impl MarketMaker {
             }
 
             info!(
-                "[MM-FILL] Closed {} on {} | entry={}¢ exit={}¢ qty={} pnl=${:.2}",
+                "[MM-FILL] Closed {} on {} | entry={}¢ exit={}¢ qty={} pnl=${:.2} fades={} reprices={}",
                 if existing.side == Side::Yes { "YES" } else { "NO" },
                 ticker,
                 existing.entry_price,
                 filled_price,
                 existing.qty,
                 pnl,
+                fades,
+                reprices,
             );
-
-            let (fades, reprices) = {
-                let ss = self.sell_states.lock().await;
-                ss.get(ticker).map(|s| (s.fades, s.reprices)).unwrap_or((0, 0))
-            };
             let sell_side_str = if existing.side == Side::Yes { "yes" } else { "no" };
             let mut event = self.make_event("sell_fill", ticker, sell_side_str, filled_price, existing.qty, order_id_str).await;
             event.fill_price = Some(filled_price);
@@ -722,7 +725,15 @@ impl MarketMaker {
                         if current_ask < target_exit {
                             let adjusted = (current_ask - 1).max(filled_price + 1);
                             info!(
-                                "[MM-FILL] Sell pricing adjusted: stale={}¢ current_ask={}¢ fresh={}¢ for {}",
+                                "[MM-FILL] Sell target lowered: stale={}¢ current_ask={}¢ fresh={}¢ for {}",
+                                target_exit, current_ask, adjusted, ticker
+                            );
+                            adjusted
+                        } else if current_ask > target_exit + 2 {
+                            // Market moved up — raise target to capture more profit (cap +5¢)
+                            let adjusted = (current_ask - 1).min(target_exit + 5);
+                            info!(
+                                "[MM-FILL] Sell target raised: stale={}¢ current_ask={}¢ fresh={}¢ for {}",
                                 target_exit, current_ask, adjusted, ticker
                             );
                             adjusted
@@ -826,7 +837,35 @@ impl MarketMaker {
                         );
                     }
                     Err(e) => {
-                        warn!("[MM-FILL] Failed to place sell for {}: {}", ticker, e);
+                        warn!("[MM-FILL] Post-only sell failed for {} — IOC exit at bid: {}", ticker, e);
+                        let fallback_price = {
+                            let books = self.books.lock().await;
+                            books.get(ticker)
+                                .and_then(|b| b.best_bid_for_side(side))
+                                .unwrap_or(true_breakeven)
+                        };
+                        match self.kalshi_api.sell_ioc(ticker, side_str, fallback_price, filled_qty).await {
+                            Ok(resp) => {
+                                info!("[MM-FILL] Fallback IOC sell {} at {}¢ filled={}", ticker, fallback_price, resp.order.filled_count());
+                            }
+                            Err(e2) => {
+                                error!("[MM-FILL] Fallback IOC also failed for {}: {}", ticker, e2);
+                            }
+                        }
+                        // Create sell state so check_timeouts can manage if IOC didn't fully fill
+                        self.sell_states.lock().await.insert(
+                            ticker.to_string(),
+                            SellState {
+                                order_id: "fallback".to_string(),
+                                ask_price: true_breakeven,
+                                entry_price: true_breakeven,
+                                qty: filled_qty,
+                                placed_time: Instant::now(),
+                                last_fade: Instant::now(),
+                                fades: 0,
+                                reprices: 0,
+                            },
+                        );
                     }
                 }
             } else {
@@ -989,9 +1028,13 @@ impl MarketMaker {
                 let sell_fee = kalshi_maker_fee_cents((yes_ask_px - 1) as u16) as i64;
                 let net_spread = yes_spread - buy_fee - sell_fee;
                 if net_spread >= self.config.min_net_spread_cents {
-                    let depth = yes_bid_qty.min(yes_ask_qty) as f64;
-                    // score = spread^1.5 * log2(1+depth) * recency_boost * volume_factor
-                    let score = ((yes_spread as f64).powf(1.5)
+                    let min_depth = yes_bid_qty.min(yes_ask_qty);
+                    if min_depth < 5 {
+                        continue; // Too thin to trade safely
+                    }
+                    let depth = min_depth as f64;
+                    let capped_spread = (yes_spread as f64).min(12.0);
+                    let score = (capped_spread.powf(1.5)
                         * (1.0 + depth).log2()
                         * recency_boost
                         * volume_factor
@@ -1003,7 +1046,7 @@ impl MarketMaker {
                         entry_price: yes_bid_px,
                         exit_price: yes_ask_px,
                         spread: yes_spread,
-                        depth: yes_bid_qty.min(yes_ask_qty),
+                        depth: min_depth,
                         score,
                         recency_secs: secs_since_activity,
                     });
@@ -1025,8 +1068,13 @@ impl MarketMaker {
                     let sell_fee = kalshi_maker_fee_cents((no_ask_px - 1) as u16) as i64;
                     let net_spread = no_spread - buy_fee - sell_fee;
                     if net_spread >= self.config.min_net_spread_cents {
-                        let depth = no_bid_qty.min(no_ask_qty) as f64;
-                        let score = ((no_spread as f64).powf(1.5)
+                        let min_depth = no_bid_qty.min(no_ask_qty);
+                        if min_depth < 5 {
+                            continue;
+                        }
+                        let depth = min_depth as f64;
+                        let capped_spread = (no_spread as f64).min(12.0);
+                        let score = (capped_spread.powf(1.5)
                             * (1.0 + depth).log2()
                             * recency_boost
                             * volume_factor
@@ -1038,7 +1086,7 @@ impl MarketMaker {
                             entry_price: no_bid_px,
                             exit_price: no_ask_px,
                             spread: no_spread,
-                            depth: no_bid_qty.min(no_ask_qty),
+                            depth: min_depth,
                             score,
                             recency_secs: secs_since_activity,
                         });
@@ -1063,6 +1111,16 @@ impl MarketMaker {
     /// `MM_BID_OFFSET_CENTS`).  The intended sell price is stored in the
     /// `QuoteRequest` and used to seed the sell order when we get filled.
     async fn execute_quote(&self, opp: &SpreadOpportunity) {
+        // Daily loss limit check
+        {
+            let pnl = *self.daily_pnl.lock().await;
+            if pnl <= -self.config.daily_loss_limit {
+                info!("[MM] Daily loss limit reached (${:.2}) — halting", pnl);
+                self.record_skip("daily_loss_limit").await;
+                return;
+            }
+        }
+
         let side_str = match opp.side {
             Side::Yes => "yes",
             Side::No => "no",
@@ -1071,6 +1129,12 @@ impl MarketMaker {
         // Buy at bid + 1¢ to stay on the maker side of the book.
         // Midpoint buying was crossing the spread and getting taker fills.
         let buy_price = (opp.entry_price + 1).max(1).min(99);
+
+        // Skip if our buy would cross or equal the ask (post-only would reject)
+        if buy_price >= opp.exit_price {
+            self.record_skip("cross_spread").await;
+            return;
+        }
 
         // Sell inside the ask by 1¢ (or ask_offset if configured higher)
         let ask_offset = self.config.ask_offset_cents;
@@ -1316,13 +1380,16 @@ impl MarketMaker {
                             let _ = self.kalshi_api.cancel_order(&state.order_id).await;
                             match self.kalshi_api.sell_ioc(&ticker, side_str, bid, state.qty).await {
                                 Ok(resp) => {
-                                    info!(
-                                        "[MM-STOPLOSS] {} IOC sell at {}¢ filled={}",
-                                        ticker, bid, resp.order.filled_count()
-                                    );
+                                    let filled = resp.order.filled_count();
+                                    info!("[MM-STOPLOSS] {} IOC sell at {}¢ filled={}", ticker, bid, filled);
+                                    if filled == 0 {
+                                        warn!("[MM-STOPLOSS] {} IOC didn't fill — retrying next cycle", ticker);
+                                        continue;
+                                    }
                                 }
                                 Err(e) => {
-                                    error!("[MM-STOPLOSS] IOC sell failed for {}: {}", ticker, e);
+                                    error!("[MM-STOPLOSS] IOC sell failed for {}: {} — retrying next cycle", ticker, e);
+                                    continue;
                                 }
                             }
                         }
@@ -1415,26 +1482,28 @@ impl MarketMaker {
                     ticker, state.entry_price
                 );
                 if !self.config.dry_run {
-                    // Cancel current sell, place IOC sell at breakeven
                     let _ = self.kalshi_api.cancel_order(&state.order_id).await;
                     match self.kalshi_api.sell_ioc(&ticker, side_str, state.entry_price, state.qty).await {
                         Ok(resp) => {
-                            info!(
-                                "[MM-FADE] Force-exit IOC sell {} filled={} for {}",
-                                ticker,
-                                resp.order.filled_count(),
-                                ticker
-                            );
+                            let filled = resp.order.filled_count();
+                            info!("[MM-FADE] Force-exit IOC {} filled={}", ticker, filled);
+                            if filled > 0 {
+                                self.sell_states.lock().await.remove(&ticker);
+                                self.positions.lock().await.remove(&ticker);
+                                self.order_to_ticker.lock().await.retain(|_, v| v != &ticker);
+                            }
                         }
                         Err(e) => {
-                            error!("[MM-FADE] Force-exit sell failed for {}: {}", ticker, e);
+                            error!("[MM-FADE] Force-exit failed for {}: {}", ticker, e);
                         }
                     }
+                } else {
+                    self.sell_states.lock().await.remove(&ticker);
+                    self.positions.lock().await.remove(&ticker);
                 }
                 let mut event = self.make_event("sell_force_exit", &ticker, side_str, state.entry_price, state.qty, &state.order_id).await;
                 event.entry_price = Some(state.entry_price);
                 self.log_event(event).await;
-                // State will be cleaned up when fill event arrives
                 continue;
             }
 
