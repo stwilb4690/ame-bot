@@ -164,7 +164,8 @@ impl ExecutionEngine {
         }
 
         // Circuit breaker check
-        if let Err(_reason) = self.circuit_breaker.can_execute(&pair.pair_id, max_contracts).await {
+        if let Err(reason) = self.circuit_breaker.can_execute(&pair.pair_id, max_contracts).await {
+            warn!("[EXEC] Circuit breaker blocked: {} (market={}, contracts={})", reason, &pair.pair_id, max_contracts);
             self.release_in_flight(market_id);
             return Ok(ExecutionResult {
                 market_id,
@@ -212,7 +213,7 @@ impl ExecutionEngine {
             return Ok(ExecutionResult {
                 market_id,
                 success: true,
-                profit_cents,
+                profit_cents: profit_cents as i64,
                 latency_ns: latency_to_exec,
                 error: Some("DRY_RUN"),
             });
@@ -228,7 +229,7 @@ impl ExecutionEngine {
             Ok((yes_filled, no_filled, yes_cost, no_cost, yes_order_id, no_order_id)) => {
                 let matched = yes_filled.min(no_filled);
                 let success = matched > 0;
-                let actual_profit = matched as i16 * 100 - (yes_cost + no_cost) as i16;
+                let actual_profit = matched as i64 * 100 - (yes_cost + no_cost);
 
                 // === AUTO-CLOSE MISMATCHED EXPOSURE (non-blocking) ===
                 if yes_filled != no_filled && (yes_filled > 0 || no_filled > 0) {
@@ -267,7 +268,7 @@ impl ExecutionEngine {
                 }
 
                 if success {
-                    self.circuit_breaker.record_success(&pair.pair_id, matched, matched, actual_profit as f64 / 100.0).await;
+                    self.circuit_breaker.record_success(&pair.pair_id, matched, matched, actual_profit as f64 / 100.0, req.arb_type).await;
                 }
 
                 if matched > 0 {
@@ -328,9 +329,9 @@ impl ExecutionEngine {
                     kalshi_filled: yes_filled,
                     poly_filled: no_filled,
                     total_cost_cents: yes_cost + no_cost,
-                    expected_profit_cents: profit_cents,
+                    expected_profit_cents: profit_cents as i64,
                     status: trade_status.to_string(),
-                });
+                }).await;
 
                 Ok(ExecutionResult {
                     market_id,
@@ -340,7 +341,8 @@ impl ExecutionEngine {
                     error: if success { None } else { Some("Partial/no fill") },
                 })
             }
-            Err(_e) => {
+            Err(e) => {
+                error!("[EXEC] Both-legs execution failed for {}: {:#}", &pair.pair_id, e);
                 self.circuit_breaker.record_error().await;
                 let (kalshi_price_log, poly_price_log) = match req.arb_type {
                     ArbType::PolyYesKalshiNo => (req.no_price, req.yes_price),
@@ -360,9 +362,9 @@ impl ExecutionEngine {
                     kalshi_filled: 0,
                     poly_filled: 0,
                     total_cost_cents: 0,
-                    expected_profit_cents: profit_cents,
+                    expected_profit_cents: profit_cents as i64,
                     status: "error".to_string(),
-                });
+                }).await;
                 Ok(ExecutionResult {
                     market_id,
                     success: false,
@@ -632,7 +634,7 @@ impl ExecutionEngine {
                 info!("[EXEC] ✅ Closed {} {} contracts for {}¢ (P&L: {}¢)",
                     closed, platform, proceeds, close_pnl);
             } else {
-                warn!("[EXEC] ⚠️ Failed to close {} excess - 0 filled", platform);
+                error!("[EXEC] Failed to close {} excess - 0 filled", platform);
             }
         };
 
@@ -656,16 +658,16 @@ impl ExecutionEngine {
                                 info!("[EXEC] PolyUS close order: id={:?}", resp.id);
                                 log_close_pnl("PolyUS", excess, proceeds);
                             }
-                            Err(e) => warn!("[EXEC] ⚠️ Failed to close PolyUS YES excess: {}", e),
+                            Err(e) => error!("[EXEC] Failed to close PolyUS YES excess: {}", e),
                         }
                     } else if let Some(ref poly_clob) = poly_async {
                         let close_price = cents_to_price(close_price_cents);
                         match poly_clob.sell_fak(&poly_yes_token, close_price, excess as f64).await {
                             Ok(fill) => log_close_pnl("Poly", fill.filled_size as i64, (fill.fill_cost * 100.0) as i64),
-                            Err(e) => warn!("[EXEC] ⚠️ Failed to close Poly YES excess: {}", e),
+                            Err(e) => error!("[EXEC] Failed to close Poly YES excess: {}", e),
                         }
                     } else {
-                        warn!("[EXEC] ⚠️ No Poly client to close YES excess");
+                        error!("[EXEC] No Poly client to close YES excess");
                     }
                 } else {
                     // Kalshi NO excess
@@ -675,7 +677,7 @@ impl ExecutionEngine {
                             let proceeds = resp.order.taker_fill_cost.unwrap_or(0) + resp.order.maker_fill_cost.unwrap_or(0);
                             log_close_pnl("Kalshi", resp.order.filled_count(), proceeds);
                         }
-                        Err(e) => warn!("[EXEC] ⚠️ Failed to close Kalshi NO excess: {}", e),
+                        Err(e) => error!("[EXEC] Failed to close Kalshi NO excess: {}", e),
                     }
                 }
             }
@@ -689,7 +691,7 @@ impl ExecutionEngine {
                             let proceeds = resp.order.taker_fill_cost.unwrap_or(0) + resp.order.maker_fill_cost.unwrap_or(0);
                             log_close_pnl("Kalshi", resp.order.filled_count(), proceeds);
                         }
-                        Err(e) => warn!("[EXEC] ⚠️ Failed to close Kalshi YES excess: {}", e),
+                        Err(e) => error!("[EXEC] Failed to close Kalshi YES excess: {}", e),
                     }
                 } else {
                     // Poly NO excess — sell NO to flatten
@@ -709,16 +711,16 @@ impl ExecutionEngine {
                                 info!("[EXEC] PolyUS close order: id={:?}", resp.id);
                                 log_close_pnl("PolyUS", excess, proceeds);
                             }
-                            Err(e) => warn!("[EXEC] ⚠️ Failed to close PolyUS NO excess: {}", e),
+                            Err(e) => error!("[EXEC] Failed to close PolyUS NO excess: {}", e),
                         }
                     } else if let Some(ref poly_clob) = poly_async {
                         let close_price = cents_to_price(close_price_cents);
                         match poly_clob.sell_fak(&poly_no_token, close_price, excess as f64).await {
                             Ok(fill) => log_close_pnl("Poly", fill.filled_size as i64, (fill.fill_cost * 100.0) as i64),
-                            Err(e) => warn!("[EXEC] ⚠️ Failed to close Poly NO excess: {}", e),
+                            Err(e) => error!("[EXEC] Failed to close Poly NO excess: {}", e),
                         }
                     } else {
-                        warn!("[EXEC] ⚠️ No Poly client to close NO excess");
+                        error!("[EXEC] No Poly client to close NO excess");
                     }
                 }
             }
@@ -837,10 +839,10 @@ async fn unwind_kalshi_fill(
             if filled > 0 {
                 info!("[EXEC] ✅ Kalshi unwind: sold={} proceeds={}¢", filled, proceeds);
             } else {
-                warn!("[EXEC] ⚠️ Kalshi unwind: 0 filled (market moved or no inventory)");
+                error!("[EXEC] Kalshi unwind: 0 filled (market moved or no inventory)");
             }
         }
-        Err(e) => warn!("[EXEC] ⚠️ Kalshi unwind sell_ioc failed: {}", e),
+        Err(e) => error!("[EXEC] Kalshi unwind sell_ioc failed: {}", e),
     }
 }
 
@@ -871,7 +873,7 @@ async fn unwind_poly_us_fill(
     info!("[EXEC] Poly US unwind sell: {} @{}¢ x{}", side, sell_price, count);
     match poly_us.place_limit_order(&order_req).await {
         Ok(resp) => info!("[EXEC] ✅ Poly US unwind sell placed: id={:?}", resp.id),
-        Err(e)   => warn!("[EXEC] ⚠️ Poly US unwind sell failed: {}", e),
+        Err(e)   => error!("[EXEC] Poly US unwind sell failed: {}", e),
     }
 }
 
@@ -892,10 +894,10 @@ async fn unwind_poly_clob_fill(
             if filled > 0 {
                 info!("[EXEC] ✅ Poly CLOB unwind: sold={} proceeds={}¢", filled, proceeds);
             } else {
-                warn!("[EXEC] ⚠️ Poly CLOB unwind: 0 filled (market moved)");
+                error!("[EXEC] Poly CLOB unwind: 0 filled (market moved)");
             }
         }
-        Err(e) => warn!("[EXEC] ⚠️ Poly CLOB unwind sell_fak failed: {}", e),
+        Err(e) => error!("[EXEC] Poly CLOB unwind sell_fak failed: {}", e),
     }
 }
 
@@ -925,9 +927,12 @@ async fn execute_poly_leg_us(
     match poly_us.place_limit_order(&order_req).await {
         Ok(resp) => {
             let order_id = resp.id.unwrap_or_default();
-            // Estimated cost: price × contracts (optimistic full fill)
+            // TODO(CRITICAL): GTC orders are NOT immediately filled. This optimistically
+            // reports full fill, which can cause incorrect position tracking and prevent
+            // one-sided fill rollback from triggering. Need to implement fill polling
+            // or switch to FOK order type on Polymarket US.
             let cost_cents = (price_usd * contracts as f64 * 100.0).round() as i64;
-            info!("[EXEC-US] PolyUS order placed: id={} status={:?}", order_id, resp.status);
+            warn!("[EXEC-US] PolyUS GTC order placed (optimistic fill assumed): id={} status={:?} contracts={}", order_id, resp.status, contracts);
             (contracts, cost_cents, order_id)
         }
         Err(e) => {
@@ -946,7 +951,7 @@ async fn execute_poly_leg_us(
 pub struct ExecutionResult {
     pub market_id: u16,
     pub success: bool,
-    pub profit_cents: i16,
+    pub profit_cents: i64,
     pub latency_ns: u64,
     pub error: Option<&'static str>,
 }
@@ -972,22 +977,24 @@ struct TradeLogEntry {
     kalshi_filled: i64,
     poly_filled: i64,
     total_cost_cents: i64,
-    expected_profit_cents: i16,
+    expected_profit_cents: i64,
     status: String,
 }
 
-/// Append a single JSON line to state/trades.jsonl (sync, called from async context).
-fn write_trade_log(entry: &TradeLogEntry) {
-    use std::io::Write;
+/// Append a single JSON line to state/trades.jsonl (async, non-blocking).
+async fn write_trade_log(entry: &TradeLogEntry) {
+    use tokio::io::AsyncWriteExt;
     match serde_json::to_string(entry) {
         Ok(json) => {
-            match std::fs::OpenOptions::new()
+            match tokio::fs::OpenOptions::new()
                 .create(true)
                 .append(true)
                 .open("state/trades.jsonl")
+                .await
             {
                 Ok(mut f) => {
-                    if let Err(e) = writeln!(f, "{}", json) {
+                    let line = format!("{}\n", json);
+                    if let Err(e) = f.write_all(line.as_bytes()).await {
                         warn!("[EXEC] Failed to write trade log: {}", e);
                     }
                 }

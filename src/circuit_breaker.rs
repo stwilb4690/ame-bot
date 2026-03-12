@@ -1,6 +1,7 @@
 // src/circuit_breaker.rs
 // Safety circuit breakers - halt trading on various conditions
 
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
@@ -217,19 +218,27 @@ impl CircuitBreaker {
     }
     
     /// Record a successful execution
-    pub async fn record_success(&self, market_id: &str, kalshi_contracts: i64, poly_contracts: i64, pnl: f64) {
+    pub async fn record_success(&self, market_id: &str, kalshi_contracts: i64, poly_contracts: i64, pnl: f64, arb_type: crate::types::ArbType) {
         // Reset consecutive errors
         self.consecutive_errors.store(0, Ordering::SeqCst);
-        
+
         // Update P&L
         let pnl_cents = (pnl * 100.0) as i64;
         self.daily_pnl_cents.fetch_add(pnl_cents, Ordering::SeqCst);
-        
-        // Update positions
+
+        // Update positions - route to correct sides based on arb type
         let mut positions = self.positions.write().await;
         let pos = positions.entry(market_id.to_string()).or_default();
-        pos.kalshi_yes += kalshi_contracts;
-        pos.poly_no += poly_contracts;
+        match arb_type {
+            crate::types::ArbType::KalshiYesPolyNo => {
+                pos.kalshi_yes += kalshi_contracts;
+                pos.poly_no += poly_contracts;
+            }
+            crate::types::ArbType::PolyYesKalshiNo => {
+                pos.poly_yes += poly_contracts;
+                pos.kalshi_no += kalshi_contracts;
+            }
+        }
     }
     
     /// Record an error
@@ -272,7 +281,6 @@ impl CircuitBreaker {
     }
 
     /// Reset the circuit breaker (after cooldown or manual reset)
-    #[allow(dead_code)]
     pub async fn reset(&self) {
         info!("[CB] Circuit breaker reset");
         self.halted.store(false, Ordering::SeqCst);
@@ -282,29 +290,64 @@ impl CircuitBreaker {
     }
 
     /// Reset daily P&L (call at midnight)
-    #[allow(dead_code)]
     pub fn reset_daily_pnl(&self) {
         info!("[CB] Daily P&L reset");
         self.daily_pnl_cents.store(0, Ordering::SeqCst);
     }
 
     /// Check if cooldown has elapsed and auto-reset if so
-    #[allow(dead_code)]
     pub async fn check_cooldown(&self) -> bool {
         if !self.halted.load(Ordering::SeqCst) {
             return true;
         }
 
-        let tripped_at = self.tripped_at.read().await;
+        // Use write lock to prevent concurrent check-and-reset race
+        let mut tripped_at = self.tripped_at.write().await;
         if let Some(tripped) = *tripped_at {
             if tripped.elapsed() > Duration::from_secs(self.config.cooldown_secs) {
-                drop(tripped_at); // Release read lock before reset
-                self.reset().await;
+                // Reset inline while holding the write lock
+                info!("[CB] Cooldown elapsed, resetting circuit breaker");
+                self.halted.store(false, Ordering::SeqCst);
+                *tripped_at = None;
+                drop(tripped_at);
+                *self.trip_reason.write().await = None;
+                self.consecutive_errors.store(0, Ordering::SeqCst);
                 return true;
             }
         }
 
         false
+    }
+
+    /// Spawn background tasks for cooldown auto-reset and daily P&L reset.
+    pub fn start_background_tasks(self: &Arc<CircuitBreaker>) {
+        // Cooldown check every 30 seconds
+        let cb = Arc::clone(self);
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+            loop {
+                interval.tick().await;
+                cb.check_cooldown().await;
+            }
+        });
+
+        // Daily P&L reset at midnight UTC
+        let cb = Arc::clone(self);
+        tokio::spawn(async move {
+            loop {
+                // Sleep until next midnight UTC
+                let now = chrono::Utc::now();
+                let tomorrow = (now + chrono::Duration::days(1)).date_naive().and_hms_opt(0, 0, 0).unwrap();
+                let until_midnight = (tomorrow - now.naive_utc()).to_std().unwrap_or(std::time::Duration::from_secs(3600));
+                tokio::time::sleep(until_midnight).await;
+                cb.reset_daily_pnl();
+                // Also reset the circuit breaker if it was tripped by daily loss
+                if cb.halted.load(Ordering::SeqCst) {
+                    info!("[CB] Day rollover -- resetting circuit breaker");
+                    cb.reset().await;
+                }
+            }
+        });
     }
 
     /// Get current status
@@ -378,7 +421,7 @@ mod tests {
         assert!(cb.can_execute("market1", 5).await.is_ok());
         
         // Record the trade
-        cb.record_success("market1", 5, 5, 0.0).await;
+        cb.record_success("market1", 5, 5, 0.0, crate::types::ArbType::KalshiYesPolyNo).await;
         
         // Should reject trade exceeding per-market limit
         let result = cb.can_execute("market1", 10).await;

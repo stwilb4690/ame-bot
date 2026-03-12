@@ -377,7 +377,7 @@ async fn write_all(writer: &StateWriter) {
         markets_with_poly_prices: with_poly,
         markets_with_both: with_both,
         circuit_breaker: cb_str,
-        daily_pnl_cents: 0, // TODO: wire up position tracker
+        daily_pnl_cents: (cb_status.daily_pnl * 100.0).round() as i64,
         arb_threshold_cents: writer.arb_threshold_cents,
         poly_us_balance_cents: if poly_bal == BALANCE_UNKNOWN { None } else { Some(poly_bal) },
         kalshi_balance_cents: if kalshi_bal == BALANCE_UNKNOWN { None } else { Some(kalshi_bal) },
@@ -483,12 +483,19 @@ pub async fn append_trade_log(entry: &str) {
     }
 }
 
-/// Write a serializable value to a JSON file (atomic via temp file).
+/// Write a serializable value to a JSON file (atomic via temp file + rename).
 async fn write_json<T: Serialize>(path: &str, value: &T) {
     match serde_json::to_string_pretty(value) {
         Ok(json) => {
-            if let Err(e) = tokio::fs::write(path, json).await {
-                warn!("[STATE] Failed to write {}: {}", path, e);
+            let tmp_path = format!("{}.tmp", path);
+            if let Err(e) = tokio::fs::write(&tmp_path, &json).await {
+                warn!("[STATE] Failed to write {}: {}", tmp_path, e);
+                return;
+            }
+            if let Err(e) = tokio::fs::rename(&tmp_path, path).await {
+                warn!("[STATE] Failed to rename {} -> {}: {}", tmp_path, path, e);
+                // Fallback: try direct write
+                let _ = tokio::fs::write(path, json).await;
             }
         }
         Err(e) => {

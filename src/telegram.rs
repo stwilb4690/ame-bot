@@ -166,7 +166,7 @@ impl TelegramClient {
         kalshi_filled: i64,
         poly_filled: i64,
         total_cost_cents: i64,
-        profit_cents: i16,
+        profit_cents: i64,
         poly_slug: &str,
     ) {
         let msg = format!(

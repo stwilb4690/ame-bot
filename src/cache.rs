@@ -100,7 +100,6 @@ impl TeamCache {
         self.reverse
             .get(key_buf.as_str())
             .map(|s| s.to_string())
-            .or_else(|| Some(kalshi_code.to_ascii_lowercase()))
     }
 
     /// Add or update a mapping

@@ -320,8 +320,10 @@ impl DiscoveryClient {
         // Merge cached pairs with newly discovered ones
         let mut all_pairs = cache.pairs;
         let mut new_count = 0;
+        let mut errors = Vec::new();
 
         for league_result in league_results {
+            errors.extend(league_result.errors);
             for pair in league_result.pairs {
                 if !all_pairs.iter().any(|p| *p.kalshi_market_ticker == *pair.kalshi_market_ticker) {
                     all_pairs.push(pair);
@@ -353,10 +355,10 @@ impl DiscoveryClient {
             kalshi_events_found: new_count,
             poly_matches: new_count,
             poly_misses: 0,
-            errors: vec![],
+            errors,
         }
     }
-    
+
     /// Discover all market types for a single league (PARALLEL)
     /// If cache is provided, only discovers markets not already in cache
     async fn discover_league(

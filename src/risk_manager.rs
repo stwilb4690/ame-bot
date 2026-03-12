@@ -41,14 +41,22 @@ pub struct RiskConfig {
 
 impl RiskConfig {
     pub fn from_env() -> Self {
-        Self {
+        let config = Self {
             portfolio_pct:      env_f64("VAR_PORTFOLIO_PCT",      9.0),
             single_pct:         env_f64("VAR_SINGLE_PCT",         2.0),
             correlated_pct:     env_f64("VAR_CORRELATED_PCT",     3.0),
             daily_drawdown_pct: env_f64("VAR_DAILY_DRAWDOWN_PCT", 5.0),
             trailing_stop_pct:  env_f64("VAR_TRAILING_STOP_PCT",  2.0),
             reserve_floor_pct:  env_f64("VAR_RESERVE_FLOOR_PCT",  18.0),
+        };
+        // Validate: zero or negative risk percentages disable safety limits
+        if config.single_pct <= 0.0 || config.portfolio_pct <= 0.0 || config.reserve_floor_pct <= 0.0 {
+            panic!(
+                "[RISK] Invalid risk config: single_pct={}, portfolio_pct={}, reserve_floor_pct={} -- all must be > 0",
+                config.single_pct, config.portfolio_pct, config.reserve_floor_pct
+            );
         }
+        config
     }
 }
 
@@ -139,6 +147,11 @@ impl RiskState {
     /// Recompute risk mode from current P&L state.
     /// Returns (old_mode, new_mode) if a transition occurred, None otherwise.
     fn update_mode(&mut self) -> Option<(RiskMode, RiskMode)> {
+        // Once Stopped, stay stopped until day rollover (sticky floor)
+        if self.risk_mode == RiskMode::Stopped {
+            return None;
+        }
+
         let new_mode = if -self.daily_pnl >= self.daily_drawdown_limit {
             RiskMode::Stopped
         } else if self.daily_pnl < self.high_water_mark - self.trailing_stop_limit {

@@ -139,7 +139,8 @@ mod position_tracker_tests {
 
 mod circuit_breaker_tests {
     use ame_bot::circuit_breaker::*;
-    
+    use ame_bot::types::ArbType;
+
     fn test_config() -> CircuitBreakerConfig {
         CircuitBreakerConfig {
             max_position_per_market: 50,
@@ -161,8 +162,8 @@ mod circuit_breaker_tests {
         assert!(result.is_ok(), "Should allow first trade");
         
         // Record success
-        cb.record_success("market1", 10, 10, 0.50).await;
-        
+        cb.record_success("market1", 10, 10, 0.50, ArbType::KalshiYesPolyNo).await;
+
         // Second trade on same market should still be allowed
         let result = cb.can_execute("market1", 10).await;
         assert!(result.is_ok(), "Should allow second trade within limit");
@@ -174,8 +175,8 @@ mod circuit_breaker_tests {
         let cb = CircuitBreaker::new(test_config());
         
         // Fill up the market
-        cb.record_success("market1", 45, 45, 1.0).await;
-        
+        cb.record_success("market1", 45, 45, 1.0, ArbType::KalshiYesPolyNo).await;
+
         // Try to add 10 more (would exceed 50 limit)
         let result = cb.can_execute("market1", 10).await;
         
@@ -189,10 +190,10 @@ mod circuit_breaker_tests {
         let cb = CircuitBreaker::new(test_config());
         
         // Fill up multiple markets
-        cb.record_success("market1", 50, 50, 1.0).await;
-        cb.record_success("market2", 50, 50, 1.0).await;
-        cb.record_success("market3", 50, 50, 1.0).await;
-        cb.record_success("market4", 45, 45, 1.0).await;  // Total: 195
+        cb.record_success("market1", 50, 50, 1.0, ArbType::KalshiYesPolyNo).await;
+        cb.record_success("market2", 50, 50, 1.0, ArbType::KalshiYesPolyNo).await;
+        cb.record_success("market3", 50, 50, 1.0, ArbType::KalshiYesPolyNo).await;
+        cb.record_success("market4", 45, 45, 1.0, ArbType::KalshiYesPolyNo).await;  // Total: 195
         
         // Try to add 10 more (would exceed 200 total limit)
         let result = cb.can_execute("market5", 10).await;
@@ -232,8 +233,8 @@ mod circuit_breaker_tests {
         cb.record_error().await;
         
         // Record success
-        cb.record_success("market1", 10, 10, 0.50).await;
-        
+        cb.record_success("market1", 10, 10, 0.50, ArbType::KalshiYesPolyNo).await;
+
         // Error count should be reset
         let status = cb.status().await;
         assert_eq!(status.consecutive_errors, 0, "Success should reset error count");
@@ -291,6 +292,7 @@ mod circuit_breaker_tests {
 mod e2e_tests {
     use ame_bot::position_tracker::*;
     use ame_bot::circuit_breaker::*;
+    use ame_bot::types::ArbType;
 
     // Note: test_full_arb_lifecycle was removed because it used the deleted
     // make_market_state helper and MarketArbState::check_arbs method.
@@ -312,14 +314,14 @@ mod e2e_tests {
         
         // Simulate a series of losing trades
         // (In reality this would come from actual fill data)
-        cb.record_success("market1", 10, 10, -3.0).await;  // -$3
-        cb.record_success("market2", 10, 10, -4.0).await;  // -$7 cumulative
+        cb.record_success("market1", 10, 10, -3.0, ArbType::KalshiYesPolyNo).await;  // -$3
+        cb.record_success("market2", 10, 10, -4.0, ArbType::KalshiYesPolyNo).await;  // -$7 cumulative
         
         // Should still be allowed
         assert!(cb.can_execute("market3", 10).await.is_ok());
         
         // One more loss pushes over the limit
-        cb.record_success("market3", 10, 10, -5.0).await;  // -$12 cumulative
+        cb.record_success("market3", 10, 10, -5.0, ArbType::KalshiYesPolyNo).await;  // -$12 cumulative
         
         // Now should be blocked due to max daily loss
         let result = cb.can_execute("market4", 10).await;
@@ -476,6 +478,8 @@ mod infra_integration_tests {
             poly_no_token: "arb_no_token".into(),
             line_value: None,
             team_suffix: Some("CFC".into()),
+            category: MarketCategory::Sports,
+            expiry_ts: None,
         };
 
         let market_id = state.add_pair(pair).unwrap();
@@ -664,6 +668,8 @@ mod infra_integration_tests {
                 poly_no_token: format!("no_{}", i).into(),
                 line_value: None,
                 team_suffix: None,
+                category: MarketCategory::Sports,
+                expiry_ts: None,
             };
 
             let id = state.add_pair(pair).unwrap();
@@ -793,7 +799,7 @@ mod execution_tests {
         let cb = CircuitBreaker::new(config);
 
         // Fill up market position
-        cb.record_success("market1", 45, 45, 1.0).await;
+        cb.record_success("market1", 45, 45, 1.0, ArbType::KalshiYesPolyNo).await;
 
         // Should block when adding more
         let result = cb.can_execute("market1", 10).await;
@@ -1241,7 +1247,7 @@ mod process_mock_tests {
 
         // Record success to circuit breaker
         if matched > 0 {
-            circuit_breaker.record_success(&pair.pair_id, matched, matched, actual_profit as f64 / 100.0).await;
+            circuit_breaker.record_success(&pair.pair_id, matched, matched, actual_profit as f64 / 100.0, req.arb_type).await;
         }
 
         // === UPDATE POSITION TRACKER (mirrors process logic) ===
@@ -1295,6 +1301,8 @@ mod process_mock_tests {
             poly_no_token: "pf_no_token".into(),
             line_value: None,
             team_suffix: None,
+            category: MarketCategory::Sports,
+            expiry_ts: None,
         }
     }
 

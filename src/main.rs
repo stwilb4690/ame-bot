@@ -19,6 +19,7 @@ mod polymarket;
 mod polymarket_clob;
 mod polymarket_us;
 mod position_tracker;
+mod risk_manager;
 mod state_writer;
 mod telegram;
 mod types;
@@ -278,6 +279,7 @@ async fn main() -> Result<()> {
 
     // === Circuit breaker ===
     let circuit_breaker = Arc::new(CircuitBreaker::new(CircuitBreakerConfig::from_env()));
+    circuit_breaker.start_background_tasks();
 
     // === Position tracker (shared between execution engine and state writer) ===
     let position_tracker: Option<Arc<RwLock<PositionTracker>>> = if mode == AppMode::Full {
@@ -348,6 +350,7 @@ async fn main() -> Result<()> {
                 run_position_monitor(
                     mon_tracker, mon_state, mon_kalshi,
                     mon_poly_async, mon_poly_us,
+                    None, // no RiskManager in arb engine; signal_trader wires its own
                     dry_run, mon_shutdown,
                 ).await;
             });
@@ -388,7 +391,6 @@ async fn main() -> Result<()> {
     let mut kalshi_shutdown = shutdown_tx.subscribe();
     tokio::spawn(async move {
         loop {
-            kalshi_connected_flag2.store(true, std::sync::atomic::Ordering::Relaxed);
             tokio::select! {
                 result = kalshi::run_ws(&kalshi_ws_config, kalshi_state.clone(), kalshi_exec_tx.clone(), kalshi_threshold) => {
                     if let Err(e) = result {
@@ -415,7 +417,6 @@ async fn main() -> Result<()> {
         let mut poly_shutdown = shutdown_tx.subscribe();
         tokio::spawn(async move {
             loop {
-                poly_connected_flag2.store(true, std::sync::atomic::Ordering::Relaxed);
                 tokio::select! {
                     result = polymarket::run_ws(poly_state.clone(), poly_exec_tx.clone(), poly_threshold) => {
                         if let Err(e) = result {

@@ -2,7 +2,7 @@
 //
 // AME Market Maker — single-platform Kalshi market maker engine.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
@@ -372,6 +372,7 @@ pub struct SellState {
 #[derive(Debug)]
 pub struct QuoteRequest {
     pub ticker: String,
+    pub side: Side,
     pub bid_price: i64,
     pub ask_price: i64,
     pub size: i64,
@@ -414,6 +415,10 @@ pub struct MarketMaker {
     pub paused: AtomicBool,
     pub order_events: Mutex<Vec<OrderEvent>>,
     pub skip_counts: Mutex<HashMap<String, u64>>,
+    /// Tickers with an in-flight IOC sell (stop-loss or kill-switch).
+    /// Prevents the WS fill handler from re-entering the buy branch
+    /// when the position has already been removed from `positions`.
+    pub closing_tickers: Mutex<HashSet<String>>,
 }
 
 impl MarketMaker {
@@ -450,6 +455,7 @@ impl MarketMaker {
             paused: AtomicBool::new(false),
             order_events: Mutex::new(Vec::new()),
             skip_counts: Mutex::new(HashMap::new()),
+            closing_tickers: Mutex::new(HashSet::new()),
         }
     }
 
@@ -612,12 +618,12 @@ impl MarketMaker {
                 ticker, qty, price, order_id
             );
 
-            // Build a synthetic payload that on_fill understands
             let synthetic = serde_json::json!({
                 "order_id":     order_id,
                 "filled_count": qty,
                 "filled_price": price,
                 "side":         side_str,
+                "action":       action,
             });
             self.on_fill(ticker, &synthetic).await;
         } else if action == "sell" {
@@ -626,13 +632,12 @@ impl MarketMaker {
                 ticker, qty, price, order_id
             );
 
-            // Build a synthetic payload that on_fill understands (position lookup
-            // inside on_fill will find the existing position and close it)
             let synthetic = serde_json::json!({
                 "order_id":     order_id,
                 "filled_count": qty,
                 "filled_price": price,
                 "side":         side_str,
+                "action":       action,
             });
             self.on_fill(ticker, &synthetic).await;
         }
@@ -643,6 +648,7 @@ impl MarketMaker {
         let filled_price = payload.get("filled_price").and_then(|v| v.as_i64()).unwrap_or(0);
         let side_str = payload.get("side").and_then(|v| v.as_str()).unwrap_or("");
         let order_id_str = payload.get("order_id").and_then(|v| v.as_str()).unwrap_or("");
+        let action = payload.get("action").and_then(|v| v.as_str()).unwrap_or("");
 
         let side = match side_str {
             "yes" => Side::Yes,
@@ -650,10 +656,28 @@ impl MarketMaker {
             _ => return,
         };
 
-        // Check whether this fill closes an existing position (sell fill) or opens one (buy fill)
+        // Use the action field from the WS fill to decide buy vs sell.
+        // Fall back to position-existence check only when action is missing
+        // (e.g. synthetic fills from REST polling).
         let existing = self.positions.lock().await.get(ticker).cloned();
+        let is_closing = self.closing_tickers.lock().await.contains(ticker);
+        let is_sell = action == "sell"
+            || (action.is_empty() && (existing.is_some() || is_closing));
 
-        if let Some(existing) = existing {
+        if is_sell {
+            // Remove from closing_tickers if present (stop-loss IOC has now filled)
+            self.closing_tickers.lock().await.remove(ticker);
+
+            let existing = match existing {
+                Some(e) => e,
+                None => {
+                    warn!(
+                        "[MM-FILL] Sell fill for {} but no position found (already closed?), skipping",
+                        ticker
+                    );
+                    return;
+                }
+            };
             // ── Sell fill: close position ────────────────────────────────────
             let pnl = if existing.side == Side::Yes {
                 (filled_price - existing.entry_price) as f64 * existing.qty as f64 / 100.0
@@ -704,7 +728,7 @@ impl MarketMaker {
             event.fades = Some(fades);
             event.reprices = Some(reprices);
             self.log_event(event).await;
-        } else {
+        } else if action == "buy" || action.is_empty() {
             // ── Buy fill: open position ─────────────────────────────────────
             // Retrieve intended exit price from the pending quote before removing it
             let target_ask = {
@@ -866,6 +890,18 @@ impl MarketMaker {
                                 reprices: 0,
                             },
                         );
+
+                        // Alert operator: position has no active exit order
+                        if let Some(tg) = &self.telegram {
+                            tg.send_alert(
+                                crate::telegram::AlertType::CircuitBreaker,
+                                0,
+                                format!(
+                                    "[MM] STUCK POSITION: {} -- both sell attempts failed, manual intervention needed",
+                                    ticker
+                                ),
+                            );
+                        }
                     }
                 }
             } else {
@@ -1216,6 +1252,7 @@ impl MarketMaker {
 
                 let quote = QuoteRequest {
                     ticker: opp.ticker.clone(),
+                    side: opp.side,
                     bid_price: buy_price,
                     ask_price: sell_price,
                     size: effective_size,
@@ -1245,15 +1282,15 @@ impl MarketMaker {
         const BUY_REPRICE_INTERVAL: Duration = Duration::from_secs(30);
 
         // ── Buy order repricing + timeouts ──────────────────────────────────
-        let pending_snap: Vec<(String, i64, i64, i64, Instant)> = {
+        let pending_snap: Vec<(String, Side, i64, i64, i64, Instant)> = {
             let pending = self.pending_orders.lock().await;
             pending
                 .iter()
-                .map(|(ticker, (q, ts))| (ticker.clone(), q.bid_price, q.ask_price, q.size, *ts))
+                .map(|(ticker, (q, ts))| (ticker.clone(), q.side, q.bid_price, q.ask_price, q.size, *ts))
                 .collect()
         };
 
-        for (ticker, old_bid, old_ask, old_size, placed_at) in pending_snap {
+        for (ticker, pending_side, old_bid, old_ask, old_size, placed_at) in pending_snap {
             // Hard timeout — cancel and move on
             if placed_at.elapsed() > buy_timeout {
                 let order_id = {
@@ -1282,8 +1319,10 @@ impl MarketMaker {
                 let fresh_mid = {
                     let books = self.books.lock().await;
                     books.get(&ticker).and_then(|b| {
-                        let bid = b.best_yes_bid().map(|(p, _)| p)?;
-                        let ask = b.best_yes_ask().map(|(p, _)| p)?;
+                        let (bid, ask) = match pending_side {
+                            Side::Yes => (b.best_yes_bid().map(|(p, _)| p)?, b.best_yes_ask().map(|(p, _)| p)?),
+                            Side::No  => (b.best_no_bid().map(|(p, _)| p)?,  b.best_no_ask().map(|(p, _)| p)?),
+                        };
                         Some((bid + ask) / 2)
                     })
                 };
@@ -1308,7 +1347,7 @@ impl MarketMaker {
                             ticker,
                             self.start_time.elapsed().as_secs()
                         );
-                        let side_str = "yes"; // TODO: track side in pending_orders
+                        let side_str = if pending_side == Side::Yes { "yes" } else { "no" };
                         match self
                             .kalshi_api
                             .place_post_only_limit(&ticker, "buy", side_str, new_buy, old_size as u32, &client_order_id)
@@ -1327,6 +1366,7 @@ impl MarketMaker {
                                 );
                                 let quote = QuoteRequest {
                                     ticker: ticker.clone(),
+                                    side: pending_side,
                                     bid_price: new_buy,
                                     ask_price: old_ask,
                                     size: old_size,
@@ -1378,23 +1418,29 @@ impl MarketMaker {
                         );
                         if !self.config.dry_run {
                             let _ = self.kalshi_api.cancel_order(&state.order_id).await;
+                            // Mark ticker as closing BEFORE the IOC sell so the WS fill
+                            // handler knows this is a sell, not a new buy.
+                            self.closing_tickers.lock().await.insert(ticker.clone());
                             match self.kalshi_api.sell_ioc(&ticker, side_str, bid, state.qty).await {
                                 Ok(resp) => {
                                     let filled = resp.order.filled_count();
                                     info!("[MM-STOPLOSS] {} IOC sell at {}¢ filled={}", ticker, bid, filled);
                                     if filled == 0 {
                                         warn!("[MM-STOPLOSS] {} IOC didn't fill — retrying next cycle", ticker);
+                                        self.closing_tickers.lock().await.remove(&ticker);
                                         continue;
                                     }
                                 }
                                 Err(e) => {
                                     error!("[MM-STOPLOSS] IOC sell failed for {}: {} — retrying next cycle", ticker, e);
+                                    self.closing_tickers.lock().await.remove(&ticker);
                                     continue;
                                 }
                             }
                         }
                         self.sell_states.lock().await.remove(&ticker);
                         self.positions.lock().await.remove(&ticker);
+                        self.closing_tickers.lock().await.remove(&ticker);
                         self.order_to_ticker.lock().await.retain(|_, v| v != &ticker);
 
                         let mut event = self.make_event("stop_loss", &ticker, side_str, bid, state.qty, &state.order_id).await;
@@ -1672,6 +1718,7 @@ impl MarketMaker {
         self.sell_states.lock().await.clear();
         self.order_to_ticker.lock().await.clear();
         self.pending_orders.lock().await.clear();
+        self.closing_tickers.lock().await.clear();
 
         error!("[MM-KILL] Kill switch complete — pausing 60s before resuming");
         tokio::time::sleep(Duration::from_secs(60)).await;
@@ -1867,6 +1914,7 @@ impl MarketMaker {
                 self.sell_states.lock().await.clear();
                 self.pending_orders.lock().await.clear();
                 self.order_to_ticker.lock().await.clear();
+                self.closing_tickers.lock().await.clear();
                 self.paused.store(false, Ordering::Relaxed);
                 info!("[MM-CMD] Restart complete — bot is running");
             }
@@ -1894,11 +1942,15 @@ impl MarketMaker {
                 if !self.config.dry_run {
                     for (ticker, side, entry_price, qty) in &positions_snap {
                         let side_str = if *side == Side::Yes { "yes" } else { "no" };
-                        match self.kalshi_api.sell_ioc(ticker, side_str, 1, *qty).await {
+                        // Use entry_price/2 (floored at 5c) to avoid catastrophic fills on thin books.
+                        // Still aggressive enough to guarantee exit on liquid markets.
+                        let floor_price = (*entry_price / 2).max(5);
+                        match self.kalshi_api.sell_ioc(ticker, side_str, floor_price, *qty).await {
                             Ok(resp) => {
                                 info!(
-                                    "[MM-CMD] Sell all IOC {} filled={} for {}",
+                                    "[MM-CMD] Sell all IOC {} at {}¢ filled={} for {}",
                                     ticker,
+                                    floor_price,
                                     resp.order.filled_count(),
                                     ticker,
                                 );
@@ -1907,7 +1959,7 @@ impl MarketMaker {
                                 error!("[MM-CMD] sell_all IOC failed for {}: {}", ticker, e);
                             }
                         }
-                        let mut event = self.make_event("sell_all", ticker, side_str, 1, *qty, "").await;
+                        let mut event = self.make_event("sell_all", ticker, side_str, floor_price, *qty, "").await;
                         event.entry_price = Some(*entry_price);
                         self.log_event(event).await;
                     }
@@ -1918,6 +1970,7 @@ impl MarketMaker {
                 self.sell_states.lock().await.clear();
                 self.pending_orders.lock().await.clear();
                 self.order_to_ticker.lock().await.clear();
+                self.closing_tickers.lock().await.clear();
                 self.paused.store(true, Ordering::Relaxed);
                 warn!("[MM-CMD] Sell all complete — bot is now paused");
             }

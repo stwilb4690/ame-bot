@@ -18,6 +18,7 @@ use crate::kalshi::KalshiApiClient;
 use crate::polymarket_clob::SharedAsyncClient;
 use crate::polymarket_us::{LimitOrderRequest, PolymarketUsClient};
 use crate::position_tracker::{ArbPosition, PositionTracker};
+use crate::risk_manager::RiskManager;
 use crate::types::{ArbType, GlobalState, MarketPair};
 
 /// Default min profit in cents to trigger an early close.
@@ -35,6 +36,7 @@ pub async fn run_position_monitor(
     kalshi: Arc<KalshiApiClient>,
     poly_async: Option<Arc<SharedAsyncClient>>,
     poly_us: Option<Arc<PolymarketUsClient>>,
+    risk_manager: Option<Arc<RiskManager>>,
     dry_run: bool,
     mut shutdown_rx: tokio::sync::broadcast::Receiver<()>,
 ) {
@@ -56,7 +58,7 @@ pub async fn run_position_monitor(
             _ = interval.tick() => {
                 scan_and_close(
                     &tracker, &state, &kalshi, &poly_async, &poly_us,
-                    dry_run, min_profit_cents,
+                    &risk_manager, dry_run, min_profit_cents,
                 ).await;
             }
             _ = shutdown_rx.recv() => { break; }
@@ -72,6 +74,7 @@ async fn scan_and_close(
     kalshi: &Arc<KalshiApiClient>,
     poly_async: &Option<Arc<SharedAsyncClient>>,
     poly_us: &Option<Arc<PolymarketUsClient>>,
+    risk_manager: &Option<Arc<RiskManager>>,
     dry_run: bool,
     min_profit_cents: i64,
 ) {
@@ -202,6 +205,11 @@ async fn scan_and_close(
 
         // Mark closed in tracker regardless of partial failures to prevent re-attempts.
         tracker.write().await.close_position(&pos.market_id, profit_usd);
+
+        // Update risk manager so daily P&L and exposure limits stay accurate.
+        if let Some(ref rm) = *risk_manager {
+            rm.record_exit(&pos.market_id, profit_usd).await;
+        }
     }
 }
 

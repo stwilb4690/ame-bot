@@ -416,8 +416,8 @@ async fn process_price_change(
         let market = &state.markets[market_id as usize];
         let (current_yes, _, current_yes_size, _) = market.poly.load();
 
-        // Only update if new price is better (lower)
-        if price < current_yes || current_yes == 0 {
+        // Always update price from price_change events (they represent the new best ask)
+        if price != current_yes || current_yes == 0 {
             // Keep existing size - it may be stale but FAK orders handle partial fills.
             // Size is an upper bound anyway; better to attempt arb than miss it.
             market.poly.update_yes(price, current_yes_size);
@@ -434,7 +434,7 @@ async fn process_price_change(
         let market = &state.markets[market_id as usize];
         let (_, current_no, _, current_no_size) = market.poly.load();
 
-        if price < current_no || current_no == 0 {
+        if price != current_no || current_no == 0 {
             market.poly.update_no(price, current_no_size);
             state.poly_update_ts[market_id as usize].store(unix_secs_now(), Ordering::Release);
 

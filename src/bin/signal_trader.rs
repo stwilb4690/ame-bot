@@ -155,6 +155,7 @@ async fn main() -> Result<()> {
     }
 
     let circuit_breaker = Arc::new(CircuitBreaker::new(CircuitBreakerConfig::from_env()));
+    circuit_breaker.start_background_tasks();
     let kalshi_api      = Arc::new(KalshiApiClient::new(kalshi_config.clone()));
 
     // ── Risk manager ─────────────────────────────────────────────────────────

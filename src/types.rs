@@ -78,7 +78,7 @@ pub struct MarketPair {
 /// Price in cents (1-99 for 0.01-0.99), 0 = no price available
 pub type PriceCents = u16;
 
-/// Size in cents (dollar amount × 100), max ~$655k per side
+/// Size in cents (dollar amount × 100), max ~$655 per side (u16::MAX = 65535 cents)
 pub type SizeCents = u16;
 
 /// Maximum number of tracked markets

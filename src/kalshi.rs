@@ -16,7 +16,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 use tokio_tungstenite::{connect_async, tungstenite::{http::Request, Message}};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use crate::config::{kalshi_ws_url, kalshi_api_base, KALSHI_API_DELAY_MS};
 use crate::execution::NanoClock;
@@ -196,11 +196,9 @@ impl KalshiConfig {
     }
 
     pub fn sign(&self, message: &str) -> Result<String> {
-        tracing::debug!("[KALSHI-DEBUG] Signing message: {}", message);
         let signing_key = SigningKey::<Sha256>::new(self.private_key.clone());
         let signature = signing_key.sign_with_rng(&mut rand::thread_rng(), message.as_bytes());
         let sig_b64 = BASE64.encode(signature.to_bytes());
-        tracing::debug!("[KALSHI-DEBUG] Signature (first 50 chars): {}...", &sig_b64[..50.min(sig_b64.len())]);
         Ok(sig_b64)
     }
 }
@@ -860,8 +858,15 @@ fn process_kalshi_delta(market: &crate::types::AtomicMarketState, body: &KalshiW
 
     // Process YES bid updates (affects NO ask)
     let (no_ask, no_size) = if let Some(levels) = &body.yes {
-        // Find best (highest) YES bid with non-zero quantity
-        levels.iter()
+        // Check if any delta entry zeroes out at the current best bid price
+        // (current_no is 100 - best_yes_bid, so best_yes_bid = 100 - current_no)
+        let current_best_yes_bid = 100u16.saturating_sub(current_no);
+        let best_bid_removed = levels.iter().any(|l| {
+            l.len() >= 2 && l[0] as u16 == current_best_yes_bid && l[1] == 0
+        });
+
+        // Find best (highest) YES bid with non-zero quantity from delta
+        let delta_best = levels.iter()
             .filter_map(|l| {
                 if l.len() >= 2 && l[1] > 0 {
                     Some((l[0], l[1]))
@@ -874,15 +879,29 @@ fn process_kalshi_delta(market: &crate::types::AtomicMarketState, body: &KalshiW
                 let ask = (100 - price) as PriceCents;
                 let size = (qty * price / 100) as SizeCents;
                 (ask, size)
-            })
-            .unwrap_or((current_no, current_no_size))
+            });
+
+        match delta_best {
+            Some(best) => best,
+            None if best_bid_removed => {
+                // Best bid was removed and no replacement in delta -- clear the price
+                warn!("[KALSHI] YES best bid removed at {}¢, clearing stored NO ask", current_best_yes_bid);
+                (0, 0)
+            }
+            None => (current_no, current_no_size),
+        }
     } else {
         (current_no, current_no_size)
     };
 
     // Process NO bid updates (affects YES ask)
     let (yes_ask, yes_size) = if let Some(levels) = &body.no {
-        levels.iter()
+        let current_best_no_bid = 100u16.saturating_sub(current_yes);
+        let best_bid_removed = levels.iter().any(|l| {
+            l.len() >= 2 && l[0] as u16 == current_best_no_bid && l[1] == 0
+        });
+
+        let delta_best = levels.iter()
             .filter_map(|l| {
                 if l.len() >= 2 && l[1] > 0 {
                     Some((l[0], l[1]))
@@ -895,8 +914,16 @@ fn process_kalshi_delta(market: &crate::types::AtomicMarketState, body: &KalshiW
                 let ask = (100 - price) as PriceCents;
                 let size = (qty * price / 100) as SizeCents;
                 (ask, size)
-            })
-            .unwrap_or((current_yes, current_yes_size))
+            });
+
+        match delta_best {
+            Some(best) => best,
+            None if best_bid_removed => {
+                warn!("[KALSHI] NO best bid removed at {}¢, clearing stored YES ask", current_best_no_bid);
+                (0, 0)
+            }
+            None => (current_yes, current_yes_size),
+        }
     } else {
         (current_yes, current_yes_size)
     };
@@ -935,5 +962,7 @@ async fn send_kalshi_arb_request(
         detected_ns: clock.now_ns(),
     };
 
-    let _ = exec_tx.try_send(req);
+    if let Err(tokio::sync::mpsc::error::TrySendError::Full(_)) = exec_tx.try_send(req) {
+        warn!("[KALSHI] Arb signal dropped -- execution channel full (capacity 256)");
+    }
 }

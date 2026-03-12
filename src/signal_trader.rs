@@ -1508,8 +1508,27 @@ impl SignalTrader {
                     return;
                 }
 
-                let actual_contracts = if is_maker { contracts } else { filled.max(1) };
+                let actual_contracts = if is_maker {
+                    // For maker (resting) orders, use actual fill count. Order may
+                    // sit on the book unfilled -- don't count as position until filled.
+                    let maker_filled = filled;
+                    if maker_filled == 0 {
+                        warn!("[SIGNAL] Maker order resting (0 fills) for {} -- tracking as pending", ticker);
+                        // Don't create position entry for unfilled maker orders
+                        // TODO: implement pending order tracking with fill polling
+                        0
+                    } else {
+                        maker_filled
+                    }
+                } else {
+                    filled.max(1)
+                };
                 let actual_var       = (entry_price as f64 / 100.0) * actual_contracts as f64;
+
+                // For maker orders with 0 fills, skip position creation entirely
+                if actual_contracts == 0 {
+                    return;
+                }
 
                 let pos = SignalPosition {
                     market_id,
@@ -1697,23 +1716,41 @@ impl SignalTrader {
         };
         let ts_exit = Utc::now().to_rfc3339();
 
+        let mut exit_succeeded = false;
+
         if self.config.dry_run {
             info!("[SIGNAL] [DRY] EXIT {} {} @{}¢ ×{} reason={}",
                   pos.kalshi_ticker, side, exit_price, pos.contracts, reason);
+            exit_succeeded = true; // dry run counts as success for P&L tracking
         } else if exit_price >= 1 && exit_price <= 99 {
             match self.kalshi_api
                 .sell_ioc(&pos.kalshi_ticker, side, exit_price as i64, pos.contracts)
                 .await
             {
-                Ok(resp) => info!("[SIGNAL] ✅ EXIT order_id={} status={}",
-                                  resp.order.order_id, resp.order.status),
-                Err(e)   => warn!("[SIGNAL] Exit order failed for {}: {}", pos.kalshi_ticker, e),
+                Ok(resp) => {
+                    info!("[SIGNAL] ✅ EXIT order_id={} status={}",
+                          resp.order.order_id, resp.order.status);
+                    exit_succeeded = resp.order.filled_count() > 0;
+                    if !exit_succeeded {
+                        warn!("[SIGNAL] Exit order placed but 0 fills for {}", pos.kalshi_ticker);
+                    }
+                }
+                Err(e) => {
+                    warn!("[SIGNAL] Exit order failed for {}: {}", pos.kalshi_ticker, e);
+                }
             }
         } else {
             warn!("[SIGNAL] Exit skipped — invalid price {}¢ for {}", exit_price, pos.kalshi_ticker);
         }
 
-        // P&L calculation
+        if !exit_succeeded && !self.config.dry_run {
+            warn!("[SIGNAL] P&L NOT recorded -- exit did not fill for {}", pos.kalshi_ticker);
+            // Still record exit in risk manager to free up capacity, but with 0 P&L
+            self.risk_manager.record_exit(&pos.kalshi_ticker, 0.0).await;
+            return;
+        }
+
+        // P&L calculation (only reached on successful exit or dry run)
         let entry_fee_per = if pos.entry_is_maker {
             kalshi_maker_fee_cents(pos.entry_price_cents.max(0) as PriceCents) as f64
         } else {

@@ -526,6 +526,12 @@ impl PolymarketAsyncClient {
             .send()
             .await?;
 
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(anyhow!("check_neg_risk failed for token {}: {} {}", token_id, status, body));
+        }
+
         let val: serde_json::Value = resp.json().await?;
         Ok(val["neg_risk"].as_bool().unwrap_or(false))
     }
@@ -552,7 +558,7 @@ pub struct SharedAsyncClient {
     creds: PreparedCreds,
     chain_id: u64,
     /// Pre-cached neg_risk lookups
-    neg_risk_cache: std::sync::RwLock<HashMap<String, bool>>,
+    neg_risk_cache: tokio::sync::RwLock<HashMap<String, bool>>,
 }
 
 impl SharedAsyncClient {
@@ -561,7 +567,7 @@ impl SharedAsyncClient {
             inner: Arc::new(client),
             creds,
             chain_id,
-            neg_risk_cache: std::sync::RwLock::new(HashMap::new()),
+            neg_risk_cache: tokio::sync::RwLock::new(HashMap::new()),
         }
     }
 
@@ -570,7 +576,7 @@ impl SharedAsyncClient {
         let data = std::fs::read_to_string(path)?;
         let map: HashMap<String, bool> = serde_json::from_str(&data)?;
         let count = map.len();
-        let mut cache = self.neg_risk_cache.write().unwrap();
+        let mut cache = self.neg_risk_cache.blocking_write();
         *cache = map;
         Ok(count)
     }
@@ -594,7 +600,7 @@ impl SharedAsyncClient {
     async fn execute_order(&self, token_id: &str, price: f64, size: f64, side: &str) -> Result<PolyFillAsync> {
         // Check neg_risk cache first
         let neg_risk = {
-            let cache = self.neg_risk_cache.read().unwrap();
+            let cache = self.neg_risk_cache.read().await;
             cache.get(token_id).copied()
         };
 
@@ -602,7 +608,7 @@ impl SharedAsyncClient {
             Some(nr) => nr,
             None => {
                 let nr = self.inner.check_neg_risk(token_id).await?;
-                let mut cache = self.neg_risk_cache.write().unwrap();
+                let mut cache = self.neg_risk_cache.write().await;
                 cache.insert(token_id.to_string(), nr);
                 nr
             }
@@ -623,7 +629,9 @@ impl SharedAsyncClient {
         }
 
         let resp_json: serde_json::Value = resp.json().await?;
-        let order_id = resp_json["orderID"].as_str().unwrap_or("unknown").to_string();
+        let order_id = resp_json["orderID"].as_str()
+            .ok_or_else(|| anyhow!("Polymarket response missing orderID field: {}", resp_json))?
+            .to_string();
 
         // Query fill status
         let order_info = self.inner.get_order_async(&order_id, &self.creds).await?;
